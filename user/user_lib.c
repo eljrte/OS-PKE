@@ -18,6 +18,7 @@ int do_user_call(uint64 sysnum, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint
   // registers (a0-a7) of our (emulated) risc-v machine.
   asm volatile(
       "ecall\n"
+      
       "sw a0, %0"  // returns a 32-bit value
       : "=m"(ret)
       :
