@@ -156,7 +156,7 @@ void load_func_name(elf_ctx *ctx)
   //段数
   uint16 sect_num = ctx->ehdr.shnum;
 
-  uint64 shstr_tab_offset = ctx->ehdr.shoff + ctx->ehdr.shstrndx * sizeof(elf_shdr);
+  uint64 shstr_tab_offset = ctx->ehdr.shoff + ctx->ehdr.shstrndx * sizeof(elf_shdr);      //先找shstr段 
   elf_fpread(ctx, (void *)&shstr_tab, sizeof(shstr_tab), shstr_tab_offset);
 
   char temp_str[shstr_tab.sh_size];
@@ -165,7 +165,7 @@ void load_func_name(elf_ctx *ctx)
 
 
   for(int i=0; i<sect_num; i++) {
-    elf_fpread(ctx, (void*)&temp_tab, sizeof(temp_tab), ctx->ehdr.shoff+i*ctx->ehdr.shentsize);
+    elf_fpread(ctx, (void*)&temp_tab, sizeof(temp_tab), ctx->ehdr.shoff+i*ctx->ehdr.shentsize);      
     uint32 type = temp_tab.sh_type;
     if(type == SHT_SYMTAB){
       sym_tab = temp_tab;

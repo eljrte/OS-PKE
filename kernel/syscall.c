@@ -41,7 +41,7 @@ int func_name_printer(uint64 ret_addr) {
   // sprint(" symboe:%d ",sym_count);
   for(int i=0;i<sym_count;i++){
     //sprint("%d %d %d\n", ret_addr, symbols[i].st_value, symbols[i].st_size);
-    if(ret_addr >= symbols[i].st_value && ret_addr < symbols[i].st_value+symbols[i].st_size){
+    if(ret_addr >= symbols[i].st_value&&ret_addr < symbols[i].st_value+symbols[i].st_size){
       sprint("%s\n",sym_names[i]);
       if(strcmp(sym_names[i],"main")==0) return 0;
       return 1;
