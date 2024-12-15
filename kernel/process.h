@@ -8,11 +8,11 @@ typedef struct trapframe_t {
   /* offset:0   */ riscv_regs regs;
 
   // process's "user kernel" stack
-  /* offset:248 */ uint64 kernel_sp;
+  /* offset:248 */ uint64 kernel_sp;          //哦哦哦哦哦你在这里
   // pointer to smode_trap_handler
   /* offset:256 */ uint64 kernel_trap;
   // saved user process counter
-  /* offset:264 */ uint64 epc;
+  /* offset:264 */ uint64 epc;   //程序计数器
 }trapframe;
 
 // the extremely simple definition of process, used for begining labs of PKE

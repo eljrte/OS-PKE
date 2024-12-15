@@ -13,6 +13,11 @@ typedef struct elf_info_t {
   process *p;
 } elf_info;
 
+elf_symbol symbols[64];
+char sym_names[64][32];
+int sym_count;
+
+
 //
 // the implementation of allocater. allocates memory space for later segment loading
 //
@@ -130,6 +135,8 @@ void load_bincode_from_host_elf(process *p) {
   // load elf. elf_load() is defined above.
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
+  load_func_name(&elfloader);
+
   // entry (virtual, also physical in lab1_x) address
   p->trapframe->epc = elfloader.ehdr.entry;
 
@@ -137,4 +144,51 @@ void load_bincode_from_host_elf(process *p) {
   spike_file_close( info.f );
 
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
+}
+
+void load_func_name(elf_ctx *ctx)
+{
+  elf_shdr sym_tab;
+  elf_shdr str_tab;
+  elf_shdr shstr_tab;
+  elf_shdr temp_tab;
+
+  //段数
+  uint16 sect_num = ctx->ehdr.shnum;
+
+  uint64 shstr_tab_offset = ctx->ehdr.shoff + ctx->ehdr.shstrndx * sizeof(elf_shdr);
+  elf_fpread(ctx, (void *)&shstr_tab, sizeof(shstr_tab), shstr_tab_offset);
+
+  char temp_str[shstr_tab.sh_size];
+  uint64 shstr_sect_off = shstr_tab.sh_offset;
+  elf_fpread(ctx, &temp_str, shstr_tab.sh_size, shstr_sect_off);
+
+
+  for(int i=0; i<sect_num; i++) {
+    elf_fpread(ctx, (void*)&temp_tab, sizeof(temp_tab), ctx->ehdr.shoff+i*ctx->ehdr.shentsize);
+    uint32 type = temp_tab.sh_type;
+    if(type == SHT_SYMTAB){
+      sym_tab = temp_tab;
+    } else if(type == SHT_STRTAB){            //下面还要再进行一次判断的原因，是type == SHT_STRTAB的有三个 eg.strtab  .shstrtab 
+      if(strcmp(temp_str+temp_tab.sh_name,".strtab")==0){
+          str_tab = temp_tab;
+        }
+    } else{}
+  }
+
+  uint64 str_sect_off = str_tab.sh_offset;
+  uint64 sym_num = sym_tab.sh_size/sizeof(elf_symbol);
+  int count = 0;
+  for(int i=0; i<sym_num; i++) {
+    elf_symbol symbol;
+    elf_fpread(ctx, (void*)&symbol, sizeof(symbol), sym_tab.sh_offset+i*sizeof(elf_symbol));
+    if(symbol.st_name == 0) continue;
+    if(symbol.st_info == 18){    //STT_FUNC        0001 0010    GLOBAL STT_FUNC
+      char symname[32];
+      elf_fpread(ctx, (void*)&symname, sizeof(symname), str_sect_off+symbol.st_name);
+      symbols[count++] = symbol;
+      strcpy(sym_names[count-1], symname);
+    }
+  }
+  sym_count = count;
 }

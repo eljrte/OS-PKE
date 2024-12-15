@@ -1,6 +1,6 @@
 .align 4
 .globl store_all_registers
-//use t6 to store all
+//use t6 to store all   这里包括sp
 .macro store_all_registers
     sd ra, 0(t6)
     sd sp, 8(t6)

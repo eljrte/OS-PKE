@@ -10,7 +10,7 @@ trap_sec_start:
 # function (smode_trap_vector) to actually handle the trap.
 #
 # NOTE: sscratch points to the trapframe of current process before entering
-# smode_trap_vector. It is done by reture_to_user function (defined below) when
+# smode_trap_vector. It is done by return_to_user function (defined below) when
 # scheduling a user-mode application to run.
 #
 .globl smode_trap_vector
@@ -32,6 +32,7 @@ smode_trap_vector:
     sd t0, 72(a0)
 
     # use the "user kernel" stack (whose pointer stored in p->trapframe->kernel_sp)
+    #在这里从user stack 转化为user kernel stack
     ld sp, 248(a0)
 
     # load the address of smode_trap_handler() from p->trapframe->kernel_trap
