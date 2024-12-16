@@ -25,7 +25,7 @@ int map_pages(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm)
     if ((pte = page_walk(page_dir, first, 1)) == 0) return -1;
     if (*pte & PTE_V)
       panic("map_pages fails on mapping va (0x%lx) to pa (0x%lx)", first, pa);
-    *pte = PA2PTE(pa) | perm | PTE_V;
+    *pte = PA2PTE(pa) | perm | PTE_V;                   
   }
   return 0;
 }
@@ -66,7 +66,8 @@ pte_t *page_walk(pagetable_t page_dir, uint64 va, int alloc) {
     if (*pte & PTE_V) {  //PTE valid
       // phisical address of pagetable of next level
       pt = (pagetable_t)PTE2PA(*pte);
-    } else { //PTE invalid (not exist).
+    } 
+    else { //PTE invalid (not exist).
       // allocate a page (to be the new pagetable), if alloc == 1
       if( alloc && ((pt = (pte_t *)alloc_page(1)) != 0) ){
         memset(pt, 0, PGSIZE);
@@ -159,7 +160,11 @@ void *user_va_to_pa(pagetable_t page_dir, void *va) {
   // (va & (1<<PGSHIFT -1)) means computing the offset of "va" inside its page.
   // Also, it is possible that "va" is not mapped at all. in such case, we can find
   // invalid PTE, and should return NULL.
-  panic( "You have to implement user_va_to_pa (convert user va to pa) to print messages in lab2_1.\n" );
+  // panic( "You have to implement user_va_to_pa (convert user va to pa) to print messages in lab2_1.\n" );
+
+  uint64 pa;
+  pa = lookup_pa(page_dir,(uint64)va)+((uint64)va & ((1<<PGSHIFT) -1));
+  return (void*)pa;
 
 }
 
@@ -184,7 +189,13 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
   // (use free_page() defined in pmm.c) the physical pages. lastly, invalidate the PTEs.
   // as naive_free reclaims only one page at a time, you only need to consider one page
   // to make user/app_naive_malloc to behave correctly.
-  panic( "You have to implement user_vm_unmap to free pages using naive_free in lab2_2.\n" );
+  // panic( "You have to implement user_vm_unmap to free pages using naive_free in lab2_2.\n" );
+  if(free!=0)
+  {
+    pte_t *pte = page_walk(page_dir,va,0);
+    free_page((void*)PTE2PA(*pte));
+    *pte &= (~PTE_V);
+  }
 
 }
 
