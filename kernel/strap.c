@@ -65,6 +65,13 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // virtual address that causes the page fault.
       // panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
 
+      //通过输入的参数stval（存放的是发生缺页异常时，程序想要访问的逻辑地址）
+      //判断缺页的逻辑地址在用户进程逻辑地址空间中的位置，看是不是比USER_STACK_TOP小，
+      //且比我们预设的可能的用户栈的最小栈底指针要大，
+      //若满足，则为合法的逻辑地址。
+      if(stval<current->trapframe->regs.sp)  panic("this address is not available!");
+      
+      //模仿sys_user_allocate_page
       map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
 
       break;
