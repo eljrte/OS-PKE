@@ -86,17 +86,13 @@ void rrsched() {
   // panic( "You need to further implement the timer handling in lab3_3.\n" );
   
   current->tick_count++;
-  if(current->tick_count>TIME_SLICE_LEN)
-  {
-    current->tick_count=0;
-    current->status=READY;
-    insert_to_ready_queue(current);
-    schedule();
-  }
-  else
-  {
-    
-  }
+  if( current->tick_count >= TIME_SLICE_LEN ){
+        current->tick_count = 0;
+        current->status = READY;
+        insert_to_ready_queue(current);
+        schedule();
+    }
+    else{}
 
 
 }
