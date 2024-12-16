@@ -243,6 +243,25 @@ int do_fork( process* parent)
         child->mapped_info[child->total_mapped_region].seg_type = CODE_SEGMENT;
         child->total_mapped_region++;
         break;
+      case DATA_SEGMENT:
+
+        for(int j=0;j<parent->mapped_info[i].npages;j++)
+        {
+          uint64 parent_data_addr = (uint64)lookup_pa(parent->pagetable,parent->mapped_info[i].va+j*PGSIZE);
+          
+          uint64 child_data_addr = (uint64)alloc_page();
+          memcpy((void*)child_data_addr,(void*)parent_data_addr,PGSIZE);
+          map_pages(child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_data_addr,prot_to_type(PROT_READ|PROT_WRITE,1));
+        }
+        
+
+        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
+        child->mapped_info[child->total_mapped_region].npages =
+          parent->mapped_info[i].npages;
+        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
+        child->total_mapped_region++;
+        break;
+
     }
   }
 
@@ -252,4 +271,48 @@ int do_fork( process* parent)
   insert_to_ready_queue( child );
 
   return child->pid;
+}
+
+int do_wait(uint64 pid){
+  int has_child=0;
+  if(pid==-1){      //parent在等待任意一个子进程
+    for(int i=0;i<NPROC;i++) 
+    {
+      if(procs[i].parent == current)
+      {
+        has_child=1;
+        if(procs[i].status== ZOMBIE)
+        {
+          procs[i].status = FREE;
+          return i;
+        }
+      }
+    }
+
+    if(!has_child) return -1;  //没有子进程等啥
+    else
+    {
+      insert_to_blocked_queue(current);
+      schedule();
+      return -2;     //有子进程但是还在run
+    }
+  }
+  else if(pid<NPROC&&pid>0)   //指定了某个子进程
+  {
+    if(procs[pid].parent!=current) return -1;  //指定子进程的父进程不对应
+    if(procs[pid].status == ZOMBIE)
+    {
+      procs[pid].status = FREE;
+      return pid;
+    }
+    else
+    {
+      insert_to_blocked_queue(current);
+      schedule();
+      return -2;
+    }
+  }
+  else return -1;   //非法子进程编号
+
+
 }

@@ -6,7 +6,7 @@
 #include "spike_interface/spike_utils.h"
 
 process* ready_queue_head = NULL;
-
+process* blocked_queue_head = NULL;
 //
 // insert a process, proc, into the END of ready queue.
 //
@@ -34,6 +34,58 @@ void insert_to_ready_queue( process* proc ) {
 
   return;
 }
+
+void insert_to_blocked_queue(process* proc)
+{
+  if( blocked_queue_head == NULL ){
+    proc->status = BLOCKED;
+    proc->queue_next = NULL;
+    blocked_queue_head = proc;
+    return;
+  }
+
+  process *p;
+  for(p=blocked_queue_head;p->queue_next!=NULL;p=p->queue_next)
+    if( p == proc ) return;  //already in queue
+
+  // p points to the last element of the ready queue
+  if( p==proc ) return;
+  p->queue_next = proc;
+  proc->status = BLOCKED;
+  proc->queue_next = NULL;
+
+  return;
+}
+
+void release_parent(process* proc)
+{ 
+  if(blocked_queue_head == NULL) return;
+  process* p;
+  process* parent_wake;
+  p = blocked_queue_head;
+
+  if(p == proc->parent)
+  {
+    parent_wake = p;
+    blocked_queue_head = p->queue_next;
+    p->status = READY;
+    insert_to_ready_queue(p);
+    return;
+  }
+  for(;p->queue_next!=NULL;p=p->queue_next)
+  {
+    if(p->queue_next == proc->parent)
+    {
+      parent_wake = p->queue_next;
+      p->queue_next=parent_wake->queue_next;
+      parent_wake->status=READY;
+      insert_to_ready_queue(parent_wake);
+      return;
+    }
+  }
+
+}
+
 
 //
 // choose a proc from the ready queue, and put it to run.
