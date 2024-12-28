@@ -33,11 +33,8 @@ smode_trap_vector:
     sd t0, 72(a0)
 
     # use the "user kernel" stack (whose pointer stored in p->trapframe->kernel_sp)
-<<<<<<< HEAD
     #在这里从user stack 转化为user kernel stack
-=======
     #这一步完成了栈的转换
->>>>>>> lab1_3_irq
     ld sp, 248(a0)
 
     # load the address of smode_trap_handler() from p->trapframe->kernel_trap

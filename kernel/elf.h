@@ -88,8 +88,8 @@ typedef struct elf_sym {
   unsigned char	st_info;	/* Type and binding attributes */            // 高 4 位 和 低 4 位 分别表示符号的绑定和类型
   unsigned char	st_other;	/* No defined meaning, 0 */
   uint16 st_shndx;		/* Associated section index */
-  uint64 st_value;		/* Value of the symbol */
-  uint64 st_size;		/* Associated symbol size */
+  uint64 st_value;		/* Value of the symbol */                        //当类型为func时 st_value指函数的入口地址 内存中起始位置 可以和ra关联
+  uint64 st_size;		/* Associated symbol size */                       //函数的代码长度
 } elf_symbol;
 
 typedef struct ELF_shdr {

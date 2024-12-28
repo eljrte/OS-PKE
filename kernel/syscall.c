@@ -37,8 +37,10 @@ ssize_t sys_user_exit(uint64 code) {
   shutdown(code);
 }
 
-int func_name_printer(uint64 ret_addr) {
-  // sprint(" symboe:%d ",sym_count);
+int funcion_name_printer(uint64 ret_addr) {
+  //f1 f2 f3 ...函数入口地址递减
+  // sprint("这里的ret_addr是:%llx",ret_addr);
+  //ret_addr是f函数中间的一行代码，需要一个区间来确认
   for(int i=0;i<sym_count;i++){
     //sprint("%d %d %d\n", ret_addr, symbols[i].st_value, symbols[i].st_size);
     if(ret_addr >= symbols[i].st_value&&ret_addr < symbols[i].st_value+symbols[i].st_size){
@@ -56,12 +58,13 @@ ssize_t sys_print_backtrace(uint64 num){
   //do_user_call的栈帧有32个字节，+32，获得print_backtrace的栈顶sp
   //其余f*函数的栈帧为16字节   fp + ra
   //再+8，获取print_backtrace的ra
-  uint64 trace_sp = current -> trapframe ->regs.sp + 32;
-  uint64 trace_ra = trace_sp + 8;
+  uint64 trace_sp_do_user_call = current -> trapframe ->regs.sp + 32;
+  uint64 trace_ra = trace_sp_do_user_call + 8;
+
   int i=0;
   for(;i<num;i++)
   {
-    if(func_name_printer(*(uint64*)trace_ra) == 0) return i;
+    if(funcion_name_printer(*(uint64*)trace_ra) == 0) return i;
       trace_ra += 16;
   }
   return i;
