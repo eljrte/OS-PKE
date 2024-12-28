@@ -8,6 +8,7 @@
 
 /* we use fixed physical (also logical) addresses for the stacks and trap frames as in
  Bare memory-mapping mode */
+ //这里规定了几个栈的地址 当Bare memory-mapping mode的时候
 // user stack top
 #define USER_STACK 0x81100000
 

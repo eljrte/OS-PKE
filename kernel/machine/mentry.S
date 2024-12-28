@@ -1,3 +1,4 @@
+#在kernel.lds文件中有写ENTRY( _mentry )
 #
 # _mentry is the entry point of riscv-pke OS kernel.
 #
@@ -17,7 +18,7 @@ _mentry:
 
     # following codes allocate a 4096-byte stack for each HART, although we use only
     # ONE HART in this lab.
-    la sp, stack0		# stack0 is statically defined in kernel/machine/minit.c 
+    la sp, stack0		# stack0 is statically defined in kernel/machine/minit.c  每一个处理器分配4KB地址
     li a3, 4096			# 4096-byte stack
     csrr a4, mhartid	# [mhartid] = core ID
     addi a4, a4, 1

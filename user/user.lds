@@ -1,3 +1,4 @@
+/* 指定符号的逻辑地址 */
 OUTPUT_ARCH( "riscv" )
 
 ENTRY(main)
