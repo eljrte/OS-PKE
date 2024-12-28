@@ -131,6 +131,7 @@ void load_bincode_from_host_elf(process *p) {
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
   // entry (virtual, also physical in lab1_x) address
+  //记录程序的entry points
   p->trapframe->epc = elfloader.ehdr.entry;
 
   // close the host spike file

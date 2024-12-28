@@ -53,7 +53,7 @@
 #define CAUSE_STORE_PAGE_FAULT 0xf     // Store/AMO page fault
 
 // fields of sstatus, the Supervisor mode Status register
-#define SSTATUS_SPP (1L << 8)   // Previous mode, 1=Supervisor, 0=User
+#define SSTATUS_SPP (1L << 8)   // Previous mode, 1=Supervisor, 0=User    
 #define SSTATUS_SPIE (1L << 5)  // Supervisor Previous Interrupt Enable
 #define SSTATUS_UPIE (1L << 4)  // User Previous Interrupt Enable
 #define SSTATUS_SIE (1L << 1)   // Supervisor Interrupt Enable
