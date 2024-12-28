@@ -138,6 +138,7 @@ void load_bincode_from_host_elf(process *p) {
   load_func_name(&elfloader);
 
   // entry (virtual, also physical in lab1_x) address
+  //记录程序的entry points
   p->trapframe->epc = elfloader.ehdr.entry;
 
   // close the host spike file
