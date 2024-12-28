@@ -1,5 +1,5 @@
 #在kernel.lds文件中有写ENTRY( _mentry )
-#
+#这是pke kernel的起点
 # _mentry is the entry point of riscv-pke OS kernel.
 #
 # !Important (for your understanding)
