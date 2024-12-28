@@ -21,6 +21,7 @@ static void handle_timer() {
   *(uint64*)CLINT_MTIMECMP(cpuid) = *(uint64*)CLINT_MTIMECMP(cpuid) + TIMER_INTERVAL;
 
   // setup a soft interrupt in sip (S-mode Interrupt Pending) to be handled in S-mode
+  //触发一次软件中断
   write_csr(sip, SIP_SSIP);
 }
 
