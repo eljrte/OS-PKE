@@ -57,6 +57,7 @@ void load_user_program(process *proc) {
          proc->trapframe->regs.sp, proc->kstack);
 
   // load_bincode_from_host_elf() is defined in kernel/elf.c
+  //代码段读取到新分配的内存空间（物理地址位于[_end，PHYS_TOP]区间）
   load_bincode_from_host_elf(proc);
 
   // populate the page table of user application. added @lab2_1

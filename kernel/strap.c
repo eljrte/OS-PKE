@@ -88,6 +88,7 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
 void smode_trap_handler(void) {
   // make sure we are in User mode before entering the trap handling.
   // we will consider other previous case in lab1_3 (interrupt).
+  //SPP为1表示supervisor 0表示user
   if ((read_csr(sstatus) & SSTATUS_SPP) != 0) panic("usertrap: not from user mode");
 
   assert(current);
