@@ -37,6 +37,7 @@ void switch_to(process* proc) {
   // write the smode_trap_vector (64-bit func. address) defined in kernel/strap_vector.S
   // to the stvec privilege register, such that trap handler pointed by smode_trap_vector
   // will be triggered when an interrupt occurs in S mode.
+  //中断处理函数的入口地址stvec 指向smode_trap_vecto
   write_csr(stvec, (uint64)smode_trap_vector);
 
   // set up trapframe values (in process structure) that smode_trap_vector will need when

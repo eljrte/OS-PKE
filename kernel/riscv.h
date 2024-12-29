@@ -65,7 +65,7 @@
 #define CLINT_MTIME (CLINT + 0xBFF8)  // cycles since boot.
 
 // fields of sstatus, the Supervisor mode Status register
-#define SSTATUS_SPP (1L << 8)   // Previous mode, 1=Supervisor, 0=User
+#define SSTATUS_SPP (1L << 8)   // Previous mode, 1=Supervisor, 0=User    
 #define SSTATUS_SPIE (1L << 5)  // Supervisor Previous Interrupt Enable
 #define SSTATUS_UPIE (1L << 4)  // User Previous Interrupt Enable
 #define SSTATUS_SIE (1L << 1)   // Supervisor Interrupt Enable
@@ -213,8 +213,13 @@ static inline void flush_tlb(void) { asm volatile("sfence.vma zero, zero"); }
 // extract the three 9-bit page table indices from a virtual address.
 #define PXMASK 0x1FF  // 9 bits  九位掩码
 
+<<<<<<< HEAD
 #define PXSHIFT(level) (PGSHIFT + (9 * (level)))    //计算虚拟地址中某一级索引的起始位位置（从最低位算起）。  12 21 30
 #define PX(level, va) ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)  //提取虚拟地址 va 中第 level 级的 9 位页表索引
+=======
+#define PXSHIFT(level) (PGSHIFT + (9 * (level)))
+#define PX(level, va) ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)  //获取对应层的index
+>>>>>>> lab2_1_pagetable
 
 // one beyond the highest possible virtual address.
 // MAXVA is actually one bit less than the max allowed by
