@@ -9,7 +9,7 @@
 #include "pmm.h"
 #include "vmm.h"
 #include "util/functions.h"
-
+#include "memlayout.h"
 #include "spike_interface/spike_utils.h"
 
 //
@@ -69,10 +69,18 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       //判断缺页的逻辑地址在用户进程逻辑地址空间中的位置，看是不是比USER_STACK_TOP小，
       //且比我们预设的可能的用户栈的最小栈底指针要大，
       //若满足，则为合法的逻辑地址。
-      if(stval<current->trapframe->regs.sp)  panic("this address is not available!");
-      
+      // if(stval<current->trapframe->regs.sp)  panic("this address is not available!");
+      // if(stval > g_ufree_page && stval < ) panic("this address is not available!");
+      //sprint(" 栈起始地址在：%llx\n",current->trapframe->regs.sp);
+      // sprint("堆最大地址：%llx\n",g_ufree_page);
+      //确保是超过了我们分配的heap区地址
+      if(stval < current->trapframe->regs.sp && stval > g_ufree_page) panic("this address is not available!");
+
       //模仿sys_user_allocate_page
-      map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
+      //确保是栈空间缺页异常
+      if(current->trapframe->regs.sp < stval && stval < USER_STACK_TOP)
+        map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
+      
 
       break;
     default:
