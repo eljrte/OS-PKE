@@ -3,6 +3,8 @@
 #include "riscv.h"
 
 // RISC-V machine places its physical memory above DRAM_BASE
+//内存起始编址
+//[0x0, 0x80000000]留作MMIO  通过内存地址来访问外部设备或硬件资源
 #define DRAM_BASE 0x80000000
 
 // the beginning virtual address of PKE kernel
