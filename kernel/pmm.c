@@ -40,6 +40,7 @@ void free_page(void *pa) {
     panic("free_page 0x%lx \n", pa);
 
   // insert a physical page to g_free_mem_list
+  //头插
   list_node *n = (list_node *)pa;
   n->next = g_free_mem_list.next;
   g_free_mem_list.next = n;
