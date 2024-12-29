@@ -201,7 +201,9 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
   if(free!=0)
   {
     pte_t *pte = page_walk(page_dir,va,0);
+    // free_page((void*)lookup_pa(page_dir,(uint64)va));
     free_page((void*)PTE2PA(*pte));
+    //修改PTE标识符
     *pte &= (~PTE_V);
   }
 
