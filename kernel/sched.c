@@ -57,6 +57,7 @@ void insert_to_blocked_queue(process* proc)
   return;
 }
 
+//子进程唤醒父进程
 void release_parent(process* proc)
 { 
   if(blocked_queue_head == NULL) return;

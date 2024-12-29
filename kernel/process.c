@@ -248,21 +248,26 @@ int do_fork( process* parent)
         break;
       case DATA_SEGMENT:
 
-        for(int j=0;j<parent->mapped_info[i].npages;j++)
+        //初始内容父子进程相同，但是后续相互独立 采用深拷贝   逻辑地址相同
+        for(int j=0;j<parent->mapped_info[DATA_SEGMENT].npages;j++)
         {
-          uint64 parent_data_addr = (uint64)lookup_pa(parent->pagetable,parent->mapped_info[i].va+j*PGSIZE);
+          //获取父进程data地址
+          uint64 parent_data_addr = (uint64)lookup_pa(parent->pagetable,parent->mapped_info[DATA_SEGMENT].va+j*PGSIZE);
           
+          //给子进程data段分配一个页
           uint64 child_data_addr = (uint64)alloc_page();
+
           memcpy((void*)child_data_addr,(void*)parent_data_addr,PGSIZE);
+
           map_pages(child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_data_addr,prot_to_type(PROT_READ|PROT_WRITE,1));
         }
         
 
-        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
-        child->mapped_info[child->total_mapped_region].npages =
-          parent->mapped_info[i].npages;
-        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
+        child->mapped_info[DATA_SEGMENT].va = parent->mapped_info[i].va;
+        child->mapped_info[DATA_SEGMENT].npages = parent->mapped_info[i].npages;
+        child->mapped_info[DATA_SEGMENT].seg_type = DATA_SEGMENT;
         child->total_mapped_region++;
+        // sprint("当前mapped_region的数量:%d",child->total_mapped_region);
         break;
 
     }
