@@ -35,6 +35,7 @@ ssize_t sys_user_exit(uint64 code) {
   sprint("User exit with code:%d.\n", code);
   // reclaim the current process, and reschedule. added @lab3_1
   free_process( current );
+  //在子进程结束之时，唤醒父进程
   release_parent( current );
   schedule();
   return 0;
