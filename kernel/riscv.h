@@ -212,7 +212,7 @@ static inline void flush_tlb(void) { asm volatile("sfence.vma zero, zero"); }
 #define PXMASK 0x1FF  // 9 bits
 
 #define PXSHIFT(level) (PGSHIFT + (9 * (level)))
-#define PX(level, va) ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)
+#define PX(level, va) ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)  //获取对应层的index
 
 // one beyond the highest possible virtual address.
 // MAXVA is actually one bit less than the max allowed by

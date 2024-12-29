@@ -56,12 +56,13 @@ pte_t *page_walk(pagetable_t page_dir, uint64 va, int alloc) {
   // traverse from page directory to page table.
   // as we use risc-v sv39 paging scheme, there will be 3 layers: page dir,
   // page medium dir, and page table.
+  //前两次是在页目录下找PDE
   for (int level = 2; level > 0; level--) {
     // macro "PX" gets the PTE index in page table of current level
     // "pte" points to the entry of current level
     pte_t *pte = pt + PX(level, va);
 
-    // now, we need to know if above pte is valid (established mapping to a phyiscal page)
+    // now, we need to know if above pte is valid (established mapping to a phyiscal page) V表示是否有对应实页
     // or not.
     if (*pte & PTE_V) {  //PTE valid
       // phisical address of pagetable of next level
@@ -79,6 +80,7 @@ pte_t *page_walk(pagetable_t page_dir, uint64 va, int alloc) {
   }
 
   // return a PTE which contains phisical address of a page
+  //这是最后一次，在页表中找PTE
   return pt + PX(0, va);
 }
 
@@ -115,7 +117,7 @@ void kern_vm_map(pagetable_t page_dir, uint64 va, uint64 pa, uint64 sz, int perm
 }
 
 //
-// kern_vm_init() constructs the kernel page table.
+// kern_vm_init() constructs the kernel page table. 操作系统内核的逻辑地址与物理地址在本实验中依旧是一一对应
 //
 void kern_vm_init(void) {
   // pagetable_t is defined in kernel/riscv.h. it's actually uint64*
@@ -128,6 +130,7 @@ void kern_vm_init(void) {
 
   // map virtual address [KERN_BASE, _etext] to physical address [DRAM_BASE, DRAM_BASE+(_etext - KERN_BASE)],
   // to maintain (direct) text section kernel address mapping.
+  //映射代码段
   kern_vm_map(t_page_dir, KERN_BASE, DRAM_BASE, (uint64)_etext - KERN_BASE,
          prot_to_type(PROT_READ | PROT_EXEC, 0));
 
@@ -136,11 +139,13 @@ void kern_vm_init(void) {
   // also (direct) map remaining address space, to make them accessable from kernel.
   // this is important when kernel needs to access the memory content of user's app
   // without copying pages between kernel and user spaces.
+  //映射数据段的起始到PHYS_TOP到它对应的物理地址空间
   kern_vm_map(t_page_dir, (uint64)_etext, (uint64)_etext, PHYS_TOP - (uint64)_etext,
          prot_to_type(PROT_READ | PROT_WRITE, 0));
 
   sprint("physical address of _etext is: 0x%lx\n", lookup_pa(t_page_dir, (uint64)_etext));
 
+  //记录根目录页
   g_kernel_pagetable = t_page_dir;
 }
 
