@@ -94,8 +94,6 @@ ssize_t sys_user_yield() {
   current->status=READY;
   insert_to_ready_queue(current);
   schedule();
-
-
   return 0;
 }
 
