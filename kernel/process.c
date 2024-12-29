@@ -59,11 +59,6 @@ void switch_to(process* proc) {
   uint64 user_satp = MAKE_SATP(proc->pagetable);
 
   // return_to_user() is defined in kernel/strap_vector.S. switch to user mode with sret.
-<<<<<<< HEAD
   // note, return_to_user takes two parameters @ and after lab2_1.
   return_to_user(proc->trapframe, user_satp);
-=======
-  //这里，把proc->trapframe放进a0寄存器里了
-  return_to_user(proc->trapframe);
->>>>>>> lab1_3_irq
 }
