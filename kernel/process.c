@@ -27,6 +27,7 @@ extern void return_to_user(trapframe *, uint64 satp);
 extern char trap_sec_start[];
 
 // process pool. added @lab3_1
+//进程池
 process procs[NPROC];
 
 // current points to the currently running user-mode application.
@@ -233,8 +234,9 @@ int do_fork( process* parent)
         // segment of parent process.
         // DO NOT COPY THE PHYSICAL PAGES, JUST MAP THEM.
         // panic( "You need to implement the code segment mapping of child in lab3_1.\n" );
+        //子进程的每个段的虚拟地址与父进程完全一致
 
-        map_pages(child->pagetable,parent->mapped_info[i].va,parent->mapped_info[i].npages*PGSIZE,lookup_pa(parent->pagetable, parent->mapped_info[i].va),prot_to_type(PROT_EXEC | PROT_READ,1));
+        map_pages(child->pagetable,parent->mapped_info[CODE_SEGMENT].va,parent->mapped_info[CODE_SEGMENT].npages*PGSIZE,lookup_pa(parent->pagetable, parent->mapped_info[CODE_SEGMENT].va),prot_to_type(PROT_EXEC | PROT_READ,1));
 
 
         // after mapping, register the vm region (do not delete codes below!)

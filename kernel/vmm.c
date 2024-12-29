@@ -168,14 +168,7 @@ void *user_va_to_pa(pagetable_t page_dir, void *va) {
   // panic( "You have to implement user_va_to_pa (convert user va to pa) to print messages in lab2_1.\n" );
 
   uint64 pa;
-<<<<<<< HEAD
   pa = lookup_pa(page_dir,(uint64)va)+((uint64)va & ((1<<PGSHIFT) -1));
-=======
-  uint64 ppage_start = lookup_pa(page_dir,(uint64)va);
-  if(ppage_start == 0) return NULL;
-  pa = ppage_start + ((uint64)va & ((1<<PGSHIFT) - 1));  
-  // pa = lookup_pa(page_dir,(uint64)va)+((uint64)va & ((1<<PGSHIFT) -1));
->>>>>>> lab2_3_pagefault
   return (void*)pa;
 
 }
@@ -205,13 +198,7 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
   if(free!=0)
   {
     pte_t *pte = page_walk(page_dir,va,0);
-<<<<<<< HEAD
     free_page((void*)PTE2PA(*pte));
-=======
-    // free_page((void*)lookup_pa(page_dir,(uint64)va));
-    free_page((void*)PTE2PA(*pte));
-    //修改PTE标识符
->>>>>>> lab2_3_pagefault
     *pte &= (~PTE_V);
   }
 

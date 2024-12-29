@@ -59,6 +59,7 @@ return_to_user:
     # a1: user page table, for satp.
 
     # switch to the user page table. added @lab2_1
+    #satp保存页表的物理基地址 还保存模式eg.Sv39、Sv48
     csrw satp, a1
     sfence.vma zero, zero
 
