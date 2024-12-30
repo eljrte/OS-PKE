@@ -248,10 +248,11 @@ int do_fork( process* parent)
         break;
       case DATA_SEGMENT:
 
+        sprint("父进程的data段信息:%llx %d",user_va_to_pa(parent->pagetable,(void*)parent->mapped_info[DATA_SEGMENT].va),parent->mapped_info[DATA_SEGMENT].npages);
         //初始内容父子进程相同，但是后续相互独立 采用深拷贝   逻辑地址相同
         for(int j=0;j<parent->mapped_info[DATA_SEGMENT].npages;j++)
         {
-          //获取父进程data地址
+          //获取父进程data物理地址
           uint64 parent_data_addr = (uint64)lookup_pa(parent->pagetable,parent->mapped_info[DATA_SEGMENT].va+j*PGSIZE);
           
           //给子进程data段分配一个页
