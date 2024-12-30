@@ -14,7 +14,7 @@
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
 #include "util/string.h"
-
+#include "vfs.h"
 //
 // initialize file system
 //
@@ -220,4 +220,21 @@ int do_link(char *oldpath, char *newpath) {
 //
 int do_unlink(char *path) {
   return vfs_unlink(path);
+}
+
+int do_rcwd(char *path){
+  memcpy(path,current->pfiles->cwd->name,MAX_PATH_LEN);
+  // sprint("\n在这里:%s\n",current->pfiles->cwd->name);
+  return 0;
+}
+
+int do_ccwd(char *path){
+  char miss_name[MAX_PATH_LEN];
+  struct dentry * parent = get_relative_path_start(path);
+  // sprint("parent:%s",parent->name);
+  struct dentry * now = lookup_final_dentry(path,&parent,miss_name);
+  // sprint("现在的目录:%s",now->name);
+  if(now == NULL) return -1;
+  current->pfiles->cwd = now;
+  return 0;
 }

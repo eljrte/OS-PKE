@@ -37,7 +37,7 @@ struct file *vfs_opendir(const char *path);
 int vfs_readdir(struct file *file, struct dir *dir);
 int vfs_mkdir(const char *path);
 int vfs_closedir(struct file *file);
-
+struct dentry* get_relative_path_start(const char *path);
 /**** vfs abstract object types ****/
 // system root direntry
 extern struct dentry *vfs_root_dentry;

@@ -9,6 +9,8 @@
 #include "util/string.h"
 #include "util/types.h"
 #include "util/hash_table.h"
+#include "process.h"   //获取current
+// extern process* current;
 
 struct dentry *vfs_root_dentry;               // system root direntry
 struct super_block *vfs_sb_list[MAX_MOUNTS];  // system superblock list
@@ -109,7 +111,8 @@ struct super_block *vfs_mount(const char *dev_name, int mnt_type) {
 // return: the file pointer to the opened file.
 //
 struct file *vfs_open(const char *path, int flags) {
-  struct dentry *parent = vfs_root_dentry; // we start the path lookup from root.
+  // struct dentry *parent = vfs_root_dentry; // we start the path lookup from root.
+  struct dentry *parent = get_relative_path_start(path);
   char miss_name[MAX_PATH_LEN];
 
   // path lookup.
@@ -117,6 +120,7 @@ struct file *vfs_open(const char *path, int flags) {
 
   // file does not exist
   if (!file_dentry) {
+
     int creatable = flags & O_CREAT;
 
     // create the file if O_CREAT bit is set
@@ -132,6 +136,7 @@ struct file *vfs_open(const char *path, int flags) {
 
       // create the file
       file_dentry = alloc_vfs_dentry(basename, NULL, parent);
+      sprint("父节点名:%s,类型:%d",parent->name,parent->dentry_inode->type);
       struct vinode *new_inode = viop_create(parent->dentry_inode, file_dentry);
       if (!new_inode) panic("vfs_open: cannot create file!\n");
 
@@ -399,7 +404,7 @@ int vfs_close(struct file *file) {
 // open a dir at vfs layer. the directory must exist on disk.
 //
 struct file *vfs_opendir(const char *path) {
-  struct dentry *parent = vfs_root_dentry;
+  struct dentry *parent =get_relative_path_start(path);
   char miss_name[MAX_PATH_LEN];
 
   // lookup the dir
@@ -502,6 +507,24 @@ int vfs_closedir(struct file *file) {
   return 0;
 }
 
+struct dentry* get_relative_path_start(const char *path){
+  if(path[0]=='.' && path[1]=='/') return current->pfiles->cwd;
+  else if(path[0]=='.' && path[1]=='.')
+  {
+    int i=0;
+    struct dentry* tmp = vfs_root_dentry;
+    while(path[i]=='.'&&path[i+1]=='.')
+    {
+      tmp = current->pfiles->cwd->parent;
+      i+=3;
+    }
+    return tmp;
+  }
+  else return vfs_root_dentry;
+}
+
+
+
 //
 // lookup the "path" and return its dentry (or NULL if not found).
 // the lookup starts from parent, and stop till the full "path" is parsed.
@@ -522,7 +545,22 @@ struct dentry *lookup_final_dentry(const char *path, struct dentry **parent,
   struct dentry *this = *parent;
 
   while (token != NULL) {
+    // sprint("本轮token:%s",token);
+    //处理相对路径的两个符号
+    if (strcmp(token, ".") == 0) {
+      token = strtok(NULL, "/");
+      continue;
+    } else if (strcmp(token, "..") == 0) {
+      // if (this == vfs_root_dentry) {
+      //   token = strtok(NULL, "/");
+      //   continue;
+      // }
+      // this = this->parent;
+      token = strtok(NULL, "/");
+      continue;
+    }
     *parent = this;
+    sprint("本轮parent的root为:%s",(*parent)->name);
     this = hash_get_dentry((*parent), token);  // try hash first
     if (this == NULL) {
       // if not found in hash, try to find it in the directory

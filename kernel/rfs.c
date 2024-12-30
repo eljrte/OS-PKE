@@ -500,7 +500,7 @@ struct vinode *rfs_create(struct vinode *parent, struct dentry *sub_dentry) {
   free_dinode -> nlinks = 1;
   free_dinode->blocks = 1;
 
-
+  // sprint("来过这里");
   // DO NOT REMOVE ANY CODE BELOW.
   // allocate a free block for the file
   free_dinode->addrs[0] = rfs_alloc_block(parent->sb);

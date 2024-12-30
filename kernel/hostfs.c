@@ -182,6 +182,7 @@ ssize_t hostfs_write(struct vinode *f_inode, const char *w_buf, ssize_t len,
 // lookup a hostfs file, and establish its vfs inode in PKE vfs.
 //
 struct vinode *hostfs_lookup(struct vinode *parent, struct dentry *sub_dentry) {
+  // sprint("来过");
   // get complete path string
   char path[MAX_PATH_LEN];
   get_path_string(path, sub_dentry);
@@ -215,6 +216,7 @@ struct vinode *hostfs_create(struct vinode *parent, struct dentry *sub_dentry) {
   if (hostfs_update_vinode(new_inode) != 0) return NULL;
 
   new_inode->ref = 0;
+  // new_inode->type = FILE_I;
   return new_inode;
 }
 
