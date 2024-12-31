@@ -57,6 +57,7 @@ void handle_mtimer_trap() {
 //
 void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
   sprint("handle_page_fault: %lx\n", stval);
+
   switch (mcause) {
     case CAUSE_STORE_PAGE_FAULT:
       // TODO (lab2_3): implement the operations that solve the page fault to
@@ -71,15 +72,16 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       //若满足，则为合法的逻辑地址。
       // if(stval<current->trapframe->regs.sp)  panic("this address is not available!");
       // if(stval > g_ufree_page && stval < ) panic("this address is not available!");
-      //sprint(" 栈起始地址在：%llx\n",current->trapframe->regs.sp);
+      // sprint(" 栈起始地址在：%llx\n",current->trapframe->regs.sp);
       // sprint("堆最大地址：%llx\n",g_ufree_page);
       //确保是超过了我们分配的heap区地址
       if(stval < current->trapframe->regs.sp && stval > g_ufree_page) panic("this address is not available!");
 
       //模仿sys_user_allocate_page
       //确保是栈空间缺页异常
-      if(current->trapframe->regs.sp < stval && stval < USER_STACK_TOP)
+      if(stval > USER_STACK_TOP - 20 * 4*1024 && stval < USER_STACK_TOP)
         map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
+        // map_pages(current->pagetable,stval,PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
       
 
       break;
