@@ -136,7 +136,7 @@ struct file *vfs_open(const char *path, int flags) {
 
       // create the file
       file_dentry = alloc_vfs_dentry(basename, NULL, parent);
-      sprint("父节点名:%s,类型:%d",parent->name,parent->dentry_inode->type);
+      // sprint("父节点名:%s,类型:%d",parent->name,parent->dentry_inode->type);
       struct vinode *new_inode = viop_create(parent->dentry_inode, file_dentry);
       if (!new_inode) panic("vfs_open: cannot create file!\n");
 
@@ -560,7 +560,7 @@ struct dentry *lookup_final_dentry(const char *path, struct dentry **parent,
       continue;
     }
     *parent = this;
-    sprint("本轮parent的root为:%s",(*parent)->name);
+    // sprint("本轮parent的root为:%s",(*parent)->name);
     this = hash_get_dentry((*parent), token);  // try hash first
     if (this == NULL) {
       // if not found in hash, try to find it in the directory

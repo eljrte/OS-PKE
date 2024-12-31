@@ -223,7 +223,12 @@ int do_unlink(char *path) {
 }
 
 int do_rcwd(char *path){
-  memcpy(path,current->pfiles->cwd->name,MAX_PATH_LEN);
+  if(strcmp(current->pfiles->cwd->name,"/")!=0)
+  {
+    path[0]= '\\';
+    memcpy(path+1,current->pfiles->cwd->name,MAX_PATH_LEN);
+  }
+  else memcpy(path,current->pfiles->cwd->name,MAX_PATH_LEN);  
   // sprint("\n在这里:%s\n",current->pfiles->cwd->name);
   return 0;
 }
