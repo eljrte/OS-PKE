@@ -248,7 +248,7 @@ int do_fork( process* parent)
         break;
       case DATA_SEGMENT:
 
-        sprint("父进程的data段信息:%llx %d",user_va_to_pa(parent->pagetable,(void*)parent->mapped_info[DATA_SEGMENT].va),parent->mapped_info[DATA_SEGMENT].npages);
+        // sprint("父进程的data段信息:%llx %d",user_va_to_pa(parent->pagetable,(void*)parent->mapped_info[DATA_SEGMENT].va),parent->mapped_info[DATA_SEGMENT].npages);
         //初始内容父子进程相同，但是后续相互独立 采用深拷贝   逻辑地址相同
         for(int j=0;j<parent->mapped_info[DATA_SEGMENT].npages;j++)
         {
@@ -303,7 +303,7 @@ int do_wait(uint64 pid){
     {
       insert_to_blocked_queue(current);
       schedule();
-      return -2;     //有子进程但是还在run
+      return 0;     //有子进程但是还在run
     }
   }
   else if(pid<NPROC&&pid>0)   //指定了某个子进程
@@ -318,7 +318,7 @@ int do_wait(uint64 pid){
     {
       insert_to_blocked_queue(current);
       schedule();
-      return -2;
+      return 0;
     }
   }
   else return -1;   //非法子进程编号

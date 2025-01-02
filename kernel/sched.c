@@ -35,6 +35,7 @@ void insert_to_ready_queue( process* proc ) {
   return;
 }
 
+//模仿insert_to_ready_queue
 void insert_to_blocked_queue(process* proc)
 {
   if( blocked_queue_head == NULL ){
@@ -58,7 +59,7 @@ void insert_to_blocked_queue(process* proc)
 }
 
 //子进程唤醒父进程
-void release_parent(process* proc)
+void wakeup_parent(process* proc)
 { 
   if(blocked_queue_head == NULL) return;
   process* p;

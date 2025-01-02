@@ -9,6 +9,6 @@
 void insert_to_ready_queue( process* proc );
 void insert_to_blocked_queue(process* proc);
 void schedule();
-void release_parent();
+void wakeup_parent();
 
 #endif

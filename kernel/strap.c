@@ -11,6 +11,7 @@
 #include "sched.h"
 #include "util/functions.h"
 
+#include "memlayout.h"
 #include "spike_interface/spike_utils.h"
 
 //
@@ -66,7 +67,10 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // virtual address that causes the page fault.
       // panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
 
+      if(stval < USER_STACK_TOP && stval > USER_STACK_TOP - 20 * 4 * 1024)
       map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
+
+    if(stval < current -> trapframe -> regs.sp && stval >=current->user_heap.heap_top) panic("invalid address");
 
       break;
     default:
