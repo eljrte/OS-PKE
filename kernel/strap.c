@@ -57,6 +57,10 @@ void handle_mtimer_trap() {
 //
 void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
   sprint("handle_page_fault: %lx\n", stval);
+  // sprint("handle_page_fault转换成物理地址: %lx\n", (uint64)(user_va_to_pa(current->pagetable,(void*)(stval+8))));
+  // sprint("handle_page_fault此时栈顶地址: %lx\n", current->trapframe->regs.sp);
+  //regs.sp -16 非法指令-8  正常0
+  // sprint("handle_page_fault此时栈顶地址: %lx\n", (uint64)user_va_to_pa(current->pagetable,(void*)current->trapframe->regs.sp));
 
   switch (mcause) {
     case CAUSE_STORE_PAGE_FAULT:
@@ -75,7 +79,11 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // sprint(" 栈起始地址在：%llx\n",current->trapframe->regs.sp);
       // sprint("堆最大地址：%llx\n",g_ufree_page);
       //确保是超过了我们分配的heap区地址
-      if(stval < current->trapframe->regs.sp && stval > g_ufree_page) panic("this address is not available!");
+      if(stval < current->trapframe->regs.sp && stval > g_ufree_page)
+      {
+        // sprint("handle_page_fault转换成物理地址(栈情况): %lx\n", (uint64)(user_va_to_pa(current->pagetable,(void*)(stval))));
+        panic("this address is not available!");
+      }
 
       //模仿sys_user_allocate_page
       //确保是栈空间缺页异常

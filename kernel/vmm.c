@@ -169,7 +169,11 @@ void *user_va_to_pa(pagetable_t page_dir, void *va) {
 
   uint64 pa;
   uint64 ppage_start = lookup_pa(page_dir,(uint64)va);
-  if(ppage_start == 0) return NULL;
+  if(ppage_start == 0)
+  {
+    // sprint("没有映射");
+    return NULL;
+  }
   pa = ppage_start + ((uint64)va & ((1<<PGSHIFT) - 1));  
   // pa = lookup_pa(page_dir,(uint64)va)+((uint64)va & ((1<<PGSHIFT) -1));
   return (void*)pa;
