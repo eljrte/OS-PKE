@@ -225,7 +225,7 @@ int do_unlink(char *path) {
 int do_rcwd(char *path){
   if(strcmp(current->pfiles->cwd->name,"/")!=0)
   {
-    path[0]= '\\';
+    path[0]= '/';
     memcpy(path+1,current->pfiles->cwd->name,MAX_PATH_LEN);
   }
   else memcpy(path,current->pfiles->cwd->name,MAX_PATH_LEN);  

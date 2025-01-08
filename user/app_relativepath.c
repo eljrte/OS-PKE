@@ -46,16 +46,15 @@ int main(int argc, char *argv[]) {
 
   printu("\n======== Test 3: Go to parent directory  ========\n");
 
-  // pwd();
-  // cd("..");
-  // printu("change current directory to ..\n");
-  // pwd();
+  pwd();
+  cd("..");
+  printu("change current directory to ..\n");
+  pwd();
   
-  printu("read: ../hostfile.txt\n");
+  printu("read: ./hostfile.txt\n");
 
-  fd = open("../hostfile2.txt", O_RDWR | O_CREAT);
+  fd = open("./hostfile.txt", O_RDONLY);
   printu("file descriptor fd: %d\n", fd);
-  write_u(fd, str, strlen(str));
 
   read_u(fd, buf, MAXBUF);
   printu("read content: \n%s\n", buf);

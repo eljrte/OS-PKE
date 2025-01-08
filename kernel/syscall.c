@@ -218,13 +218,15 @@ ssize_t sys_user_unlink(char * vfn){
   return do_unlink(pfn);
 }
 
+//path是返回的结果
 ssize_t sys_user_rcwd(char* path) {
   char* pathpa = (char*)user_va_to_pa((pagetable_t)current->pagetable, (void*)path);
   return do_rcwd(pathpa);
 }
 
-ssize_t sys_user_ccwd(char* path) {
-  char* pathpa = (char*)user_va_to_pa((pagetable_t)current->pagetable, (void*)path);
+
+ssize_t sys_user_ccwd(char * path){
+  char * pathpa = (char*)user_va_to_pa((pagetable_t)(current->pagetable), (void*)path);
   return do_ccwd(pathpa);
 }
 
@@ -277,9 +279,9 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
     case SYS_user_unlink:
       return sys_user_unlink((char *)a1);
     case SYS_user_rcwd:
-      return sys_user_rcwd((char *)a1);
+      return sys_user_rcwd((char*)a1);
     case SYS_user_ccwd:
-      return sys_user_ccwd((char *)a1);
+      return sys_user_ccwd((char*)a1);
     default:
       panic("Unknown syscall %ld \n", a0);
   }

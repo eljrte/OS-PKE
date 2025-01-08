@@ -512,10 +512,10 @@ struct dentry* get_relative_path_start(const char *path){
   else if(path[0]=='.' && path[1]=='.')
   {
     int i=0;
-    struct dentry* tmp = vfs_root_dentry;
+    struct dentry* tmp = current->pfiles->cwd;
     while(path[i]=='.'&&path[i+1]=='.')
     {
-      tmp = current->pfiles->cwd->parent;
+      tmp = tmp->parent;
       i+=3;
     }
     return tmp;
@@ -547,18 +547,10 @@ struct dentry *lookup_final_dentry(const char *path, struct dentry **parent,
   while (token != NULL) {
     // sprint("本轮token:%s",token);
     //处理相对路径的两个符号
-    if (strcmp(token, ".") == 0) {
+    if (strcmp(token, ".") == 0 || strcmp(token, "..") == 0) {
       token = strtok(NULL, "/");
       continue;
-    } else if (strcmp(token, "..") == 0) {
-      // if (this == vfs_root_dentry) {
-      //   token = strtok(NULL, "/");
-      //   continue;
-      // }
-      // this = this->parent;
-      token = strtok(NULL, "/");
-      continue;
-    }
+    } 
     *parent = this;
     // sprint("本轮parent的root为:%s",(*parent)->name);
     this = hash_get_dentry((*parent), token);  // try hash first
