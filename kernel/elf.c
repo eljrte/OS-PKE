@@ -113,13 +113,18 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
     // table array
     p->line = (addr_line *)(p->file + 64); p->line_ind = 0;
     char *off = debug_line;
+
     while (off < debug_line + length) { // iterate each compilation unit(CU)
+        // sprint("yep");
         debug_header *dh = (debug_header *)off; off += sizeof(debug_header);
         dir_base = dir_ind; file_base = file_ind;
         // get directory name char pointer in this CU
         while (*off != 0) {
             p->dir[dir_ind++] = off; while (*off != 0) off++; off++;
         }
+        
+        sprint("%s\n",p->dir[dir_ind-1]);
+
         off++;
         // get file name char pointer in this CU
         while (*off != 0) {
@@ -127,7 +132,10 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
             uint64 dir; read_uleb128(&dir, &off);
             p->file[file_ind++].dir = dir - 1 + dir_base;
             read_uleb128(NULL, &off); read_uleb128(NULL, &off);
+            
+            // sprint("本次读取的文件名和所属文件夹序号:%s,%d\n",p->file[file_ind-1].file,p->file[file_ind-1].dir);
         }
+        // 这里显示文件的初始行号为1
         off++; addr_line regs; regs.addr = 0; regs.file = 1; regs.line = 1;
         // simulate the state machine op code
         for (;;) {
@@ -248,6 +256,42 @@ static size_t parse_args(arg_buf *arg_bug_msg) {
   return pk_argc - arg;
 }
 
+
+elf_sect_header debug_line_sh;
+char debug_line_content[16384];
+
+elf_status elf_load_debug_line_content(elf_ctx * ctx){
+
+    elf_sect_header shstsh;
+
+    elf_fpread(ctx, (void*)&shstsh, sizeof(shstsh), ctx->ehdr.shoff+ctx->ehdr.shstrndx*ctx->ehdr.shentsize);
+
+    char shstsh_content[shstsh.size];
+
+    elf_fpread(ctx,&shstsh_content,shstsh.size,shstsh.offset);
+
+    elf_sect_header tmp;
+    int i=0;
+    for(;i<=ctx->ehdr.shnum;i++)
+    {
+        elf_fpread(ctx,(void*)&tmp,ctx->ehdr.shentsize,ctx->ehdr.shoff+i*ctx->ehdr.shentsize);
+        char * section_name = &shstsh_content[tmp.name];
+        if(strcmp(section_name,".debug_line") == 0)
+        {
+            debug_line_sh = tmp;
+            break;
+        }
+    }
+
+    elf_fpread(ctx,(void*)&debug_line_content,debug_line_sh.size,debug_line_sh.offset);
+    make_addr_line(ctx,debug_line_content,debug_line_sh.size);
+    // sprint("ok");
+    return EL_OK;
+}
+
+
+
+
 //
 // load the elf of user application, by using the spike file interface.
 //
@@ -276,6 +320,9 @@ void load_bincode_from_host_elf(process *p) {
 
   // load elf. elf_load() is defined above.
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
+
+  // 在这里加载debug_line的信息 以为elf_load只加载运行相关的section
+  if (elf_load_debug_line_content(&elfloader) != EL_OK) panic("Fail on loading elf_debug_line.\n");
 
   // entry (virtual, also physical in lab1_x) address
   //记录程序的entry points

@@ -1,6 +1,8 @@
 #include "kernel/riscv.h"
 #include "kernel/process.h"
 #include "spike_interface/spike_utils.h"
+#include "string.h"
+
 
 static void handle_instruction_access_fault() { panic("Instruction access fault!"); }
 
@@ -8,7 +10,10 @@ static void handle_load_access_fault() { panic("Load access fault!"); }
 
 static void handle_store_access_fault() { panic("Store/AMO access fault!"); }
 
-static void handle_illegal_instruction() { panic("Illegal instruction!"); }
+static void handle_illegal_instruction() { 
+
+  panic("Illegal instruction!");
+}
 
 static void handle_misaligned_load() { panic("Misaligned Load!"); }
 
@@ -25,11 +30,81 @@ static void handle_timer() {
   write_csr(sip, SIP_SSIP);
 }
 
+
+void print_error_line(uint64 error_addr){
+  // sprint("%llx",error_addr);
+  uint64 file_idx=0,line_idx=0,dir_idx=0;
+
+  for(int i=0;i<current->line_ind;i++)
+  {
+    if(current->line[i].addr == error_addr)
+    {
+      file_idx = current->line[i].file;
+      line_idx = current->line[i].line;
+      break;
+    }
+  }
+
+  dir_idx = current->file[file_idx].dir;
+
+  //如果是用户源程序发生的错误，路径为相对路径，如果是调用的标准库内发生的错误，路径为绝对路径。
+  //经打印p->dir发现:
+  // user 
+  // /home/pke/riscv64-elf-gcc/lib/gcc/riscv64-unknown-elf/11.1.0/include
+  // ./util
+  char file_path[4096];
+  strcpy(file_path,current->dir[dir_idx]);
+  file_path[strlen(current->dir[dir_idx])] = '/';
+  strcpy(file_path+strlen(current->dir[dir_idx])+1,current->file[file_idx].file);
+
+  sprint("Runtime error at %s:%d\n",file_path,line_idx);
+
+
+  // sprint("%s",file_path);
+  
+  spike_file_t *fd = spike_file_open(file_path,O_RDONLY,0);
+  struct stat file;
+  spike_file_stat(fd,&file);
+  char buf[file.st_size];
+  spike_file_read(fd,(void*)buf,file.st_size);
+  // sprint("%s",file_buf);
+
+  char *off = buf;
+  uint64 file_line_id = 1;
+  while(off < buf + file.st_size)
+  {
+    if(file_line_id == line_idx)
+    {
+      char tmp_buf[4096];
+      int i=0;
+      while(*off!='\n')
+      {
+        tmp_buf[i++]=*off;
+        off++;
+      }
+      tmp_buf[i] = '\0';
+      sprint("%s\n",tmp_buf);
+      break;
+    }
+    while(*off != '\n')  off++;
+    off++; file_line_id++;
+
+  }
+
+spike_file_close(fd);
+
+
+}
+
 //
 // handle_mtrap calls a handling function according to the type of a machine mode interrupt (trap).
 //
 void handle_mtrap() {
   uint64 mcause = read_csr(mcause);
+
+  uint64 mepc = read_csr(mepc);
+
+  print_error_line(mepc);
   switch (mcause) {
     case CAUSE_MTIMER:
       handle_timer();

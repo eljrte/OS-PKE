@@ -51,7 +51,7 @@ typedef struct elf_sect_header_t{
     uint64 entsize;
 } elf_sect_header;
 
-// compilation units header (in debug line section)
+// compilation units header (in debug line section)   
 typedef struct __attribute__((packed)) {
     uint32 length;
     uint16 version;

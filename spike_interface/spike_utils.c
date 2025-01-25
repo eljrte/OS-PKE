@@ -45,7 +45,7 @@ static uintptr_t mcall_console_putchar(uint8 ch) {
 }
 
 void vprintk(const char* s, va_list vl) {
-  char out[256];
+  char out[1024];
   int res = vsnprintf(out, sizeof(out), s, vl);
   //you need spike_file_init before this call
   spike_file_write(stderr, out, res < sizeof(out) ? res : sizeof(out));
