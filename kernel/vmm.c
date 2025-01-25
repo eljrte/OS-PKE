@@ -25,7 +25,7 @@ int map_pages(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm)
     if ((pte = page_walk(page_dir, first, 1)) == 0) return -1;
     if (*pte & PTE_V)
       panic("map_pages fails on mapping va (0x%lx) to pa (0x%lx)", first, pa);
-    *pte = PA2PTE(pa) | perm | PTE_V;
+    *pte = PA2PTE(pa) | perm | PTE_V;                   
   }
   return 0;
 }
@@ -56,17 +56,19 @@ pte_t *page_walk(pagetable_t page_dir, uint64 va, int alloc) {
   // traverse from page directory to page table.
   // as we use risc-v sv39 paging scheme, there will be 3 layers: page dir,
   // page medium dir, and page table.
+  //前两次是在页目录下找PDE
   for (int level = 2; level > 0; level--) {
     // macro "PX" gets the PTE index in page table of current level
     // "pte" points to the entry of current level
     pte_t *pte = pt + PX(level, va);
 
-    // now, we need to know if above pte is valid (established mapping to a phyiscal page)
+    // now, we need to know if above pte is valid (established mapping to a phyiscal page) V表示是否有对应实页
     // or not.
     if (*pte & PTE_V) {  //PTE valid
       // phisical address of pagetable of next level
       pt = (pagetable_t)PTE2PA(*pte);
-    } else { //PTE invalid (not exist).
+    } 
+    else { //PTE invalid (not exist).
       // allocate a page (to be the new pagetable), if alloc == 1
       if( alloc && ((pt = (pte_t *)alloc_page(1)) != 0) ){
         memset(pt, 0, PGSIZE);
@@ -79,6 +81,7 @@ pte_t *page_walk(pagetable_t page_dir, uint64 va, int alloc) {
   }
 
   // return a PTE which contains phisical address of a page
+  //这是最后一次，在页表中找PTE
   return pt + PX(0, va);
 }
 
@@ -115,7 +118,7 @@ void kern_vm_map(pagetable_t page_dir, uint64 va, uint64 pa, uint64 sz, int perm
 }
 
 //
-// kern_vm_init() constructs the kernel page table.
+// kern_vm_init() constructs the kernel page table. 操作系统内核的逻辑地址与物理地址在本实验中依旧是一一对应
 //
 void kern_vm_init(void) {
   // pagetable_t is defined in kernel/riscv.h. it's actually uint64*
@@ -128,6 +131,7 @@ void kern_vm_init(void) {
 
   // map virtual address [KERN_BASE, _etext] to physical address [DRAM_BASE, DRAM_BASE+(_etext - KERN_BASE)],
   // to maintain (direct) text section kernel address mapping.
+  //映射代码段
   kern_vm_map(t_page_dir, KERN_BASE, DRAM_BASE, (uint64)_etext - KERN_BASE,
          prot_to_type(PROT_READ | PROT_EXEC, 0));
 
@@ -136,11 +140,13 @@ void kern_vm_init(void) {
   // also (direct) map remaining address space, to make them accessable from kernel.
   // this is important when kernel needs to access the memory content of user's app
   // without copying pages between kernel and user spaces.
+  //映射数据段的起始到PHYS_TOP到它对应的物理地址空间
   kern_vm_map(t_page_dir, (uint64)_etext, (uint64)_etext, PHYS_TOP - (uint64)_etext,
          prot_to_type(PROT_READ | PROT_WRITE, 0));
 
   sprint("physical address of _etext is: 0x%lx\n", lookup_pa(t_page_dir, (uint64)_etext));
 
+  //记录根目录页
   g_kernel_pagetable = t_page_dir;
 }
 
@@ -159,7 +165,14 @@ void *user_va_to_pa(pagetable_t page_dir, void *va) {
   // (va & (1<<PGSHIFT -1)) means computing the offset of "va" inside its page.
   // Also, it is possible that "va" is not mapped at all. in such case, we can find
   // invalid PTE, and should return NULL.
-  panic( "You have to implement user_va_to_pa (convert user va to pa) to print messages in lab2_1.\n" );
+  // panic( "You have to implement user_va_to_pa (convert user va to pa) to print messages in lab2_1.\n" );
+
+  uint64 pa;
+  uint64 ppage_start = lookup_pa(page_dir,(uint64)va);
+  if(ppage_start == 0) return NULL;
+  pa = ppage_start + ((uint64)va & ((1<<PGSHIFT) - 1));  
+  // pa = lookup_pa(page_dir,(uint64)va)+((uint64)va & ((1<<PGSHIFT) -1));
+  return (void*)pa;
 
 }
 
@@ -184,6 +197,14 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
   // (use free_page() defined in pmm.c) the physical pages. lastly, invalidate the PTEs.
   // as naive_free reclaims only one page at a time, you only need to consider one page
   // to make user/app_naive_malloc to behave correctly.
-  panic( "You have to implement user_vm_unmap to free pages using naive_free in lab2_2.\n" );
+  // panic( "You have to implement user_vm_unmap to free pages using naive_free in lab2_2.\n" );
+  if(free!=0)
+  {
+    pte_t *pte = page_walk(page_dir,va,0);
+    // free_page((void*)lookup_pa(page_dir,(uint64)va));
+    free_page((void*)PTE2PA(*pte));
+    //修改PTE标识符
+    *pte &= (~PTE_V);
+  }
 
 }
