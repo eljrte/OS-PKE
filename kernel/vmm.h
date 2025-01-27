@@ -31,4 +31,19 @@ void *user_va_to_pa(pagetable_t page_dir, void *va);
 void user_vm_map(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm);
 void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free);
 
+
+
+/*用于better_alloc 更细粒度的heap分配*/
+typedef struct MCB{
+  uint64 size;
+  uint64 va_start;
+  uint64 pa_start;
+  bool free;
+  struct MCB* next;
+}MCB;
+
+
+void init_MCB_pool();
+uint64 better_alloc(uint64 n);
+void better_free(uint64 va);
 #endif

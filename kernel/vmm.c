@@ -10,6 +10,7 @@
 #include "util/string.h"
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
+#include "process.h"
 
 /* --- utility functions for virtual address mapping --- */
 //
@@ -207,4 +208,95 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
     *pte &= (~PTE_V);
   }
 
+}
+
+bool first_malloc=TRUE;
+struct MCB* head_MCB=NULL;
+//这里MCB控制块的位置有两种选择，1.集中放置 2.放在相应块内 我们采用第二种
+void init_MCB_pool(){
+  //初始化MCB_POOL 分配一个页面
+  void* pa = alloc_page();
+  uint64 va = g_ufree_page;
+  user_vm_map(current->pagetable,va,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+
+  head_MCB = (struct MCB*)pa;
+  head_MCB->free=1;
+  head_MCB->next=NULL;
+  head_MCB->size=PGSIZE-sizeof(MCB);
+  head_MCB->va_start=va+sizeof(MCB);
+  head_MCB->pa_start=(uint64)pa+sizeof(MCB);
+
+  //g_ufree_page表示空闲块起点
+  g_ufree_page += PGSIZE;
+}
+
+uint64 better_alloc(uint64 n){
+  if(first_malloc)
+  {
+    init_MCB_pool();
+    first_malloc = FALSE;
+  }
+  struct MCB* cur = head_MCB;
+
+  while(cur!=NULL)
+  {
+    //符合条件  原区分裂 增加一个mcb来记录
+    if(cur->free==1&&cur->size>=n+sizeof(MCB))
+    {
+      cur->free=0;
+      //这里是一波对齐？？？
+      struct MCB* split_MCB = (struct MCB*)(((uint64)(cur->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
+      split_MCB->va_start = (cur->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+      split_MCB->pa_start = (cur->pa_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+
+      split_MCB->free=1;
+      split_MCB->size = cur->size - n - sizeof(MCB);
+      // sprint("还剩下%d空间\n",split_MCB->size);
+      cur->size = n;
+      split_MCB->next=cur->next;
+      cur->next=split_MCB;
+      //这里有个小bug 可能刚好消耗完，这个块就没了。  好像也没事
+      return cur->va_start;
+    }
+    //发现没有满足条件的，那么分配一个新的page
+    if(cur->next==NULL) break;
+    else cur = cur->next;
+  }
+
+  //分配足够多的page 起始是g_ufree_page
+  void* pa;
+  uint64 start = g_ufree_page;
+  
+  //这里我们先简单点，假设只多分配一个page即可 后续需修改为可按需分配多page
+  pa = alloc_page();
+  user_vm_map(current->pagetable,g_ufree_page,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+  g_ufree_page+=PGSIZE;
+
+  struct MCB* new_MCB = (struct MCB*)pa;
+  new_MCB->free=0;
+  new_MCB->next=NULL;
+  new_MCB->size=PGSIZE-sizeof(MCB)-n;
+  new_MCB->va_start=start+sizeof(MCB);
+  new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+
+  
+
+  cur->next=new_MCB; 
+  return new_MCB->va_start;
+
+}
+
+void better_free(uint64 va){
+  struct MCB* cur = head_MCB;
+  while(cur!=NULL)
+  {
+    if(cur->va_start==va)
+    {
+      cur->free=1;
+
+      //当整个page都空了的时候，需要释放该page
+      // if(cur->va_start==)
+      break;
+    }
+  }
 }
