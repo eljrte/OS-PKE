@@ -33,6 +33,9 @@ process procs[NPROC];
 // current points to the currently running user-mode application.
 process* current = NULL;
 
+Sem semaphore[10];
+int sem_count=0; // 用于指示用了多少个semaphore
+
 //
 // switch to a user-mode process
 //
@@ -256,3 +259,65 @@ int do_fork( process* parent)
 
   return child->pid;
 }
+
+
+//信号灯设置初值
+int do_sem_new(int value)
+{
+  semaphore[sem_count].value = value;
+  semaphore[sem_count].sem_queue_head = NULL;
+  sem_count++;
+
+  //这里返回信号灯标号
+  return sem_count-1;
+}
+
+
+int insert_into_semaphore_waiting_queue(int sem_id,process* proc){
+  //假如该信号灯队列为空
+  if(semaphore[sem_id].sem_queue_head==NULL)
+  {
+    semaphore[sem_id].sem_queue_head=proc;
+    proc->queue_next=NULL;
+    proc->status=BLOCKED;
+    return 0;
+  }
+
+  process *p;
+  for(p=semaphore[sem_id].sem_queue_head;p->queue_next!=NULL;p=p->queue_next)
+    if( p == proc ) return 0;
+
+  if( p==proc ) return 0;
+  p->queue_next = proc;
+  proc->status = BLOCKED;
+  proc->queue_next = NULL;
+
+  return 0;
+
+}
+
+int do_semp(int sem_id)
+{
+  semaphore[sem_id].value--;
+  if(semaphore[sem_id].value<0)
+  {
+    insert_into_semaphore_waiting_queue(sem_id,current);
+    schedule();
+  }
+  return 0;
+}
+
+
+int do_semv(int sem_id)
+{
+  semaphore[sem_id].value++;
+  if(semaphore[sem_id].value<=0)
+  {
+    process *p = semaphore[sem_id].sem_queue_head;
+    semaphore[sem_id].sem_queue_head = p->queue_next;
+    insert_to_ready_queue(p);
+  }
+  return 0;
+}
+
+
