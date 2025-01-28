@@ -21,6 +21,7 @@ static void handle_timer() {
   *(uint64*)CLINT_MTIMECMP(cpuid) = *(uint64*)CLINT_MTIMECMP(cpuid) + TIMER_INTERVAL;
 
   // setup a soft interrupt in sip (S-mode Interrupt Pending) to be handled in S-mode
+  //触发一次软件中断
   write_csr(sip, SIP_SSIP);
 }
 
@@ -44,7 +45,8 @@ void handle_mtrap() {
     case CAUSE_ILLEGAL_INSTRUCTION:
       // TODO (lab1_2): call handle_illegal_instruction to implement illegal instruction
       // interception, and finish lab1_2.
-      panic( "call handle_illegal_instruction to accomplish illegal instruction interception for lab1_2.\n" );
+      handle_illegal_instruction();
+      // panic( "call handle_illegal_instruction to accomplish illegal instruction interception for lab1_2.\n" );
 
       break;
     case CAUSE_MISALIGNED_LOAD:
