@@ -147,6 +147,32 @@ static inline uint64 read_tp(void) {
 // write tp, the thread pointer, holding hartid (core number), the index into cpus[].
 static inline void write_tp(uint64 x) { asm volatile("mv tp, %0" : : "r"(x)); }
 
+typedef volatile int spinlock_t;
+static inline void acquire_lock(spinlock_t *lock){
+  int expected = 1; 
+  int old;
+
+  do {
+      asm volatile(
+          "amoswap.w.aq %0, %1, (%2)" // 原子交换
+          : "=r"(old)                // 输出，返回旧值
+          : "r"(expected),           // 输入，尝试设置锁为 1
+            "r"(lock)                // 输入，锁的地址
+          : "memory");               // 通知编译器，该指令会影响内存
+  } while (old != 0); // 如果旧值不是 0，继续尝试获取锁
+}
+
+static inline void release_lock(spinlock_t *lock) {
+  int unlocked = 0; // 表示锁未被持有
+
+  asm volatile(
+      "amoswap.w.rl x0, %1, (%0)" // 原子交换，释放锁
+      :                          // 无输出
+      : "r"(lock),               // 输入，锁的地址
+        "r"(unlocked)            // 输入，设置锁为 0
+      : "memory");               // 通知编译器，该指令会影响内存
+}
+
 typedef struct riscv_regs_t {
   /*  0  */ uint64 ra;
   /*  8  */ uint64 sp;

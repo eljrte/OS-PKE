@@ -15,6 +15,8 @@ extern uint64 g_mem_size;
 static uint64 free_mem_start_addr;  //beginning address of free memory
 static uint64 free_mem_end_addr;    //end address of free memory (not included)
 
+static spinlock_t lock = 0;
+
 int vm_alloc_stage[NCPU] = { 0 }; // 0 for kernel alloc, 1 for user alloc
 typedef struct node {
   struct node *next;
@@ -37,6 +39,7 @@ static void create_freepage_list(uint64 start, uint64 end) {
 // place a physical page at *pa to the free list of g_free_mem_list (to reclaim the page)
 //
 void free_page(void *pa) {
+  acquire_lock(&lock);
   if (((uint64)pa % PGSIZE) != 0 || (uint64)pa < free_mem_start_addr || (uint64)pa >= free_mem_end_addr)
     panic("free_page 0x%lx \n", pa);
 
@@ -45,19 +48,23 @@ void free_page(void *pa) {
   list_node *n = (list_node *)pa;
   n->next = g_free_mem_list.next;
   g_free_mem_list.next = n;
+  release_lock(&lock);
 }
 
 //
 // takes the first free page from g_free_mem_list, and returns (allocates) it.
 // Allocates only ONE page!
 //
+//
 void *alloc_page(void) {
+  acquire_lock(&lock);
   list_node *n = g_free_mem_list.next;
-  uint64 hartid = 0;
-  if (vm_alloc_stage[hartid]) {
-    sprint("hartid = %ld: alloc page 0x%x\n", hartid, n);
+  uint64 cpu_id = read_tp();
+  if (vm_alloc_stage[cpu_id]) {
+    sprint("hartid = %ld: alloc page 0x%x\n", cpu_id, n);
   }
   if (n) g_free_mem_list.next = n->next;
+  release_lock(&lock);
   return (void *)n;
 }
 
