@@ -27,11 +27,13 @@ smode_trap_vector:
     store_all_registers
 
     # come back to save a0 register before entering trap handling in trapframe
+    #这里要回头保存a0 因为现在的a0指向trapframe 之前的a0在第一步中保存到了sscratch
     # [t0]=[sscratch]
     csrr t0, sscratch
     sd t0, 72(a0)
 
     # use the "user kernel" stack (whose pointer stored in p->trapframe->kernel_sp)
+    #这一步完成了栈的转换
     ld sp, 248(a0)
 
     # load the address of smode_trap_handler() from p->trapframe->kernel_trap
@@ -50,7 +52,7 @@ smode_trap_vector:
 # which stores the context of a user application.
 # return_to_user() takes one parameter, i.e., the pointer (a0 register) pointing to a
 # trapframe (defined in kernel/process.h) of the process.
-#
+# 启动用户程序的时候，此时a0装的是trapframe 所以下列代码，将sscratch指向trapframe
 .globl return_to_user
 return_to_user:
     # a0: TRAPFRAME

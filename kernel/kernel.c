@@ -47,6 +47,7 @@ void load_user_program(process *proc) {
 
   // allocate pages to both user-kernel stack and user app itself. added @lab2_1
   proc->kstack = (uint64)alloc_page() + PGSIZE;   //user kernel stack top
+  
   uint64 user_stack = (uint64)alloc_page();       //phisical address of user stack bottom
 
   // USER_STACK_TOP = 0x7ffff000, defined in kernel/memlayout.h
@@ -56,6 +57,7 @@ void load_user_program(process *proc) {
          proc->trapframe->regs.sp, proc->kstack);
 
   // load_bincode_from_host_elf() is defined in kernel/elf.c
+  //代码段读取到新分配的内存空间（物理地址位于[_end，PHYS_TOP]区间）
   load_bincode_from_host_elf(proc);
 
   // populate the page table of user application. added @lab2_1
