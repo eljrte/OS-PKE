@@ -193,7 +193,7 @@ int do_fork( process* parent)
         memcpy( (void*)lookup_pa(child->pagetable, child->mapped_info[STACK_SEGMENT].va),
           (void*)lookup_pa(parent->pagetable, parent->mapped_info[i].va), PGSIZE );
         break;
-      case HEAP_SEGMENT:
+      case HEAP_SEGMENT:     //实现Copy-ON-Write
         // build a same heap for child process.
 
         // convert free_pages_address into a filter to skip reclaimed blocks in the heap
@@ -202,6 +202,10 @@ int do_fork( process* parent)
           int free_block_filter[MAX_HEAP_PAGES];
           memset(free_block_filter, 0, MAX_HEAP_PAGES);
           uint64 heap_bottom = parent->user_heap.heap_bottom;
+
+          //sprint("一些相关信息:%llx,%llx,%d\n",current->user_heap.heap_top,current->user_heap.heap_bottom,current->user_heap.free_pages_count);
+          //sprint("一些相关信息:%llx,%llx,%d\n",parent->user_heap.heap_top,parent->user_heap.heap_bottom,parent->user_heap.free_pages_count);
+
           for (int i = 0; i < parent->user_heap.free_pages_count; i++) {
             int index = (parent->user_heap.free_pages_address[i] - heap_bottom) / PGSIZE;
             free_block_filter[index] = 1;
@@ -213,10 +217,25 @@ int do_fork( process* parent)
             if (free_block_filter[(heap_block - heap_bottom) / PGSIZE])  // skip free blocks
               continue;
 
-            void* child_pa = alloc_page();
-            memcpy(child_pa, (void*)lookup_pa(parent->pagetable, heap_block), PGSIZE);
-            user_vm_map((pagetable_t)child->pagetable, heap_block, PGSIZE, (uint64)child_pa,
-                        prot_to_type(PROT_WRITE | PROT_READ, 1));
+            // void* child_pa = alloc_page();
+            // memcpy(child_pa, (void*)lookup_pa(parent->pagetable, heap_block), PGSIZE);
+            // user_vm_map((pagetable_t)child->pagetable, heap_block, PGSIZE, (uint64)child_pa,
+            //             prot_to_type(PROT_WRITE | PROT_READ, 1));
+
+            uint64 pa = lookup_pa(parent->pagetable,heap_block);
+            // sprint("pa值为:%llx\n",pa);
+
+            //增加物理页引用计数
+            inc_page_ref(pa);
+
+            //将父进程对应的页表项改为只读，并标记为 COW
+            uint64 perm_r_special = prot_to_type(PROT_READ,1) | PTE_RSW1;
+            user_vm_map((pagetable_t)parent->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+
+
+            //只读  //利用RSW位区分普通只读和copyonwrite
+            user_vm_map((pagetable_t)child->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+            // sprint("成功");
           }
 
           child->mapped_info[HEAP_SEGMENT].npages = parent->mapped_info[HEAP_SEGMENT].npages;

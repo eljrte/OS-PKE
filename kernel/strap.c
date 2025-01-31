@@ -10,8 +10,10 @@
 #include "vmm.h"
 #include "sched.h"
 #include "util/functions.h"
+#include "util/string.h"
 
 #include "spike_interface/spike_utils.h"
+
 
 //
 // handling the syscalls. will call do_syscall() defined in kernel/syscall.c
@@ -51,6 +53,11 @@ void handle_mtimer_trap() {
 
 }
 
+extern int pa_cnt[524287];
+int is_pte_cow(pte_t* pte){
+  if((*pte & PTE_RSW1) == 0) return 0;
+  return 1;
+}
 //
 // the page fault handler. added @lab2_3. parameters:
 // sepc: the pc when fault happens;
@@ -66,7 +73,35 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // virtual address that causes the page fault.
       // panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
 
-      map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
+      pte_t* pte = page_walk(current->pagetable,stval,0);
+      if(pte && (*pte & PTE_RSW1))
+      {
+        uint64 pa = PTE2PA(*pte);
+        // sprint("我在这0");
+        if(pa_cnt[(pa - 0x80000000) / 0x1000] > 0)
+        {
+            // sprint("我在这1");
+            void* new_pa = alloc_page();
+            memcpy((void*)new_pa,(void*)pa,PGSIZE);
+            // sprint("我在这2");
+
+            *pte ^= PTE_V | PTE_RSW1;
+            map_pages((pagetable_t)current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)new_pa,prot_to_type(PROT_READ|PROT_WRITE,1)); 
+
+            inc_page_ref((uint64)new_pa);
+            dec_page_ref((uint64)pa);
+        }
+        else
+        {
+            sprint("我在这4");
+            *pte |= PTE_W;
+            *pte &= ~PTE_RSW1;
+        }
+      }
+      else{ 
+        map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
+      sprint("我在这5");
+      }
 
       break;
     default:

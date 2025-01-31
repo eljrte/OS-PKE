@@ -13,7 +13,7 @@ int main(void) {
   printu("the physical address of parent process heap is: ");
   printpa(heap_data);
   int pid = fork();
-  if (pid == 0) {
+  if (pid == 0) {         //这个是关注子进程的
     printu("the physical address of child process heap before copy on write is: ");
     printpa(heap_data);
     heap_data[0] = 0;

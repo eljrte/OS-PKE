@@ -198,6 +198,7 @@ static inline void flush_tlb(void) { asm volatile("sfence.vma zero, zero"); }
 #define PTE_G (1L << 5)  // global
 #define PTE_A (1L << 6)  // accessed
 #define PTE_D (1L << 7)  // dirty
+#define PTE_RSW1 (1L << 8) //标记
 
 // shift a physical address to the right place for a PTE.
 //>>12是去掉页内偏移   <<10是PTE的PPN从第10位开始

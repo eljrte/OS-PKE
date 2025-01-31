@@ -14,6 +14,7 @@ enum VMPermision {
   PROT_EXEC = 4,
 };
 
+
 uint64 prot_to_type(int prot, int user);
 pte_t *page_walk(pagetable_t pagetable, uint64 va, int alloc);
 uint64 lookup_pa(pagetable_t pagetable, uint64 va);
@@ -32,5 +33,8 @@ void *user_va_to_pa(pagetable_t page_dir, void *va);
 void user_vm_map(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm);
 void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free);
 void print_proc_vmspace(process* proc);
+void inc_page_ref(uint64 pa);
+void dec_page_ref(uint64 pa);
+
 
 #endif
