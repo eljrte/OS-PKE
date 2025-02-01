@@ -13,12 +13,15 @@
 typedef struct elf_info_t {
   spike_file_t *f;
   process *p;
+  //为了使用vfs
+  struct file * file;
 } elf_info;
 
 //
 // the implementation of allocater. allocates memory space for later segment loading.
 // this allocater is heavily modified @lab2_1, where we do NOT work in bare mode.
 //
+//感觉这个地方的elf_pa参数很鸡肋啊
 static void *elf_alloc_mb(elf_ctx *ctx, uint64 elf_pa, uint64 elf_va, uint64 size) {
   elf_info *msg = (elf_info *)ctx->info;
   // we assume that size of proram segment is smaller than a page.
@@ -169,4 +172,113 @@ void load_bincode_from_host_elf(process *p) {
   spike_file_close( info.f );
 
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
+}
+
+
+static uint64 elf_fpread_vfs(elf_ctx *ctx, void *dest, uint64 nb, uint64 offset){
+  elf_info *msg = (elf_info *)ctx->info;
+  
+  vfs_lseek(msg->file,offset,LSEEK_SET);
+
+  return vfs_read(msg->file,dest,nb);
+
+}
+
+elf_status elf_init_vfs(elf_ctx *ctx,void *info){
+  ctx->info = info;
+
+  if(elf_fpread_vfs(ctx,&ctx->ehdr,sizeof(ctx->ehdr),0) != sizeof(ctx->ehdr)) return EL_EIO;
+
+  if (ctx->ehdr.magic != ELF_MAGIC) return EL_NOTELF;
+
+  return EL_OK;
+}
+
+
+elf_status elf_load_vfs(elf_ctx* ctx){
+  elf_prog_header ph_addr;
+  int i, off;
+
+  //增加一步clear的操作
+  process* proc = (process*)(((elf_info*)(ctx->info))->p);
+  for (int i = 0; i < proc->total_mapped_region; i++) {
+    if (proc->mapped_info[i].seg_type == CODE_SEGMENT || proc->mapped_info[i].seg_type == DATA_SEGMENT) {
+    
+      user_vm_unmap((pagetable_t)proc->pagetable, proc->mapped_info[i].va, PGSIZE, 1);
+      proc->mapped_info[i].va = 0;
+      proc->total_mapped_region--;
+    }
+  }
+
+  // traverse the elf program segment headers
+  for (i = 0, off = ctx->ehdr.phoff; i < ctx->ehdr.phnum; i++, off += sizeof(ph_addr)) {
+    // read segment headers
+    if (elf_fpread_vfs(ctx, (void *)&ph_addr, sizeof(ph_addr), off) != sizeof(ph_addr)) return EL_EIO;
+
+    if (ph_addr.type != ELF_PROG_LOAD) continue;
+    if (ph_addr.memsz < ph_addr.filesz) return EL_ERR;
+    if (ph_addr.vaddr + ph_addr.memsz < ph_addr.vaddr) return EL_ERR;
+
+    // sprint("333");
+    // allocate memory block before elf loading 
+    void *dest = elf_alloc_mb(ctx, ph_addr.vaddr, ph_addr.vaddr, ph_addr.memsz);
+
+    // sprint("444");
+    // actual loading
+    if (elf_fpread_vfs(ctx, dest, ph_addr.memsz, ph_addr.off) != ph_addr.memsz)
+      return EL_EIO;
+
+    // record the vm region in proc->mapped_info. added @lab3_1
+    int j;
+    for( j=0; j<PGSIZE/sizeof(mapped_region); j++ ) //seek the last mapped region
+      if( (process*)(((elf_info*)(ctx->info))->p)->mapped_info[j].va == 0x0 ) break;
+
+    ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].va = ph_addr.vaddr;
+    ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].npages = 1;
+
+    // SEGMENT_READABLE, SEGMENT_EXECUTABLE, SEGMENT_WRITABLE are defined in kernel/elf.h
+    if( ph_addr.flags == (SEGMENT_READABLE|SEGMENT_EXECUTABLE) ){
+      ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].seg_type = CODE_SEGMENT;
+      sprint( "CODE_SEGMENT added at mapped info offset:%d\n", j );
+    }else if ( ph_addr.flags == (SEGMENT_READABLE|SEGMENT_WRITABLE) ){
+      ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].seg_type = DATA_SEGMENT;
+      sprint( "DATA_SEGMENT added at mapped info offset:%d\n", j );
+    }else
+      panic( "unknown program segment encountered, segment flag:%d.\n", ph_addr.flags );
+
+    ((process*)(((elf_info*)(ctx->info))->p))->total_mapped_region ++;
+  }
+
+  return EL_OK;
+
+}
+
+int do_exec(process* current,char * path){
+  char* file_path = (char*)user_va_to_pa((pagetable_t)current->pagetable,path);
+
+  //模仿elf.c文件
+  elf_ctx elfloader;
+  memset(&elfloader, 0, sizeof(elfloader));
+  elf_info info;
+
+  info.p = current;
+  info.file = vfs_open(file_path,O_RDONLY);
+  if (IS_ERR_VALUE(info.file)) panic("Fail on openning the input application program.\n");
+
+  if (elf_init_vfs(&elfloader, &info) != EL_OK)
+    panic("fail to init elfloader.\n");
+
+  // sprint("1111");
+
+  if (elf_load_vfs(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
+
+  // sprint("2222");
+  current->trapframe->epc = elfloader.ehdr.entry;
+
+  vfs_close(info.file);
+
+  sprint("Application program entry point (virtual address): 0x%lx\n", current->trapframe->epc);
+
+  return 0;
+
 }

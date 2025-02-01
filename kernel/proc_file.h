@@ -4,6 +4,7 @@
 #include "spike_interface/spike_file.h"
 #include "util/types.h"
 #include "vfs.h"
+// #include "elf.h"
 
 //
 // file operations
@@ -24,6 +25,7 @@ int do_closedir(int fd);
 int do_link(char *oldpath, char *newpath);
 int do_unlink(char *path);
 
+
 void fs_init(void);
 
 // data structure that manages all openned files in a PCB
@@ -31,7 +33,7 @@ typedef struct proc_file_management_t {
   struct dentry *cwd;  // vfs dentry of current working directory
   struct file opened_files[MAX_FILES];  // opened files array
   int nfiles;  // the number of files opened by a process
-} proc_file_management;
+}proc_file_management;
 
 proc_file_management *init_proc_file_management(void);
 

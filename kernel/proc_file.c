@@ -14,6 +14,7 @@
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
 #include "util/string.h"
+// #include "vmm.h"
 
 //
 // initialize file system
@@ -221,3 +222,4 @@ int do_link(char *oldpath, char *newpath) {
 int do_unlink(char *path) {
   return vfs_unlink(path);
 }
+
