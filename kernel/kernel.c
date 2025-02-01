@@ -93,7 +93,7 @@ int s_start(void) {
   pmm_init();
 
   // build the kernel page table
-  kern_vm_init();
+  kern_vm_init(); 
 
   // now, switch to paging mode by turning on paging (SV39)
   enable_paging();
