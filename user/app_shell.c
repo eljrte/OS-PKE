@@ -7,6 +7,8 @@
 #include "string.h"
 #include "util/types.h"
 
+
+//这个是主进程
 int main(int argc, char *argv[]) {
   printu("\n======== Shell Start ========\n\n");
   int fd;

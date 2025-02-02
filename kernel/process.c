@@ -86,6 +86,7 @@ void init_proc_pool() {
 // allocate an empty process, init its vm space. returns the pointer to
 // process strcuture. added @lab3_1
 //
+//在这里看一下如何建造一个process
 process* alloc_process() {
   // locate the first usable process structure
   int i;
