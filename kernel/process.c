@@ -27,6 +27,7 @@ extern void return_to_user(trapframe *, uint64 satp);
 extern char trap_sec_start[];
 
 // process pool. added @lab3_1
+//进程池
 process procs[NPROC];
 
 // current points to the currently running user-mode application.
@@ -42,6 +43,7 @@ void switch_to(process* proc) {
   // write the smode_trap_vector (64-bit func. address) defined in kernel/strap_vector.S
   // to the stvec privilege register, such that trap handler pointed by smode_trap_vector
   // will be triggered when an interrupt occurs in S mode.
+  //中断处理函数的入口地址stvec 指向smode_trap_vecto
   write_csr(stvec, (uint64)smode_trap_vector);
 
   // set up trapframe values (in process structure) that smode_trap_vector will need when
@@ -237,8 +239,9 @@ int do_fork( process* parent)
         // segment of parent process.
         // DO NOT COPY THE PHYSICAL PAGES, JUST MAP THEM.
         // panic( "You need to implement the code segment mapping of child in lab3_1.\n" );
+        //子进程的每个段的虚拟地址与父进程完全一致
 
-        map_pages(child->pagetable,parent->mapped_info[i].va,parent->mapped_info[i].npages*PGSIZE,lookup_pa(parent->pagetable, parent->mapped_info[i].va),prot_to_type(PROT_EXEC | PROT_READ,1));
+        map_pages(child->pagetable,parent->mapped_info[CODE_SEGMENT].va,parent->mapped_info[CODE_SEGMENT].npages*PGSIZE,lookup_pa(parent->pagetable, parent->mapped_info[CODE_SEGMENT].va),prot_to_type(PROT_EXEC | PROT_READ,1));
 
 
         // after mapping, register the vm region (do not delete codes below!)
@@ -248,6 +251,31 @@ int do_fork( process* parent)
         child->mapped_info[child->total_mapped_region].seg_type = CODE_SEGMENT;
         child->total_mapped_region++;
         break;
+      case DATA_SEGMENT:
+
+        // sprint("父进程的data段信息:%llx %d",user_va_to_pa(parent->pagetable,(void*)parent->mapped_info[DATA_SEGMENT].va),parent->mapped_info[DATA_SEGMENT].npages);
+        //初始内容父子进程相同，但是后续相互独立 采用深拷贝   逻辑地址相同
+        for(int j=0;j<parent->mapped_info[DATA_SEGMENT].npages;j++)
+        {
+          //获取父进程data物理地址
+          uint64 parent_data_addr = (uint64)lookup_pa(parent->pagetable,parent->mapped_info[DATA_SEGMENT].va+j*PGSIZE);
+          
+          //给子进程data段分配一个页
+          uint64 child_data_addr = (uint64)alloc_page();
+
+          memcpy((void*)child_data_addr,(void*)parent_data_addr,PGSIZE);
+
+          map_pages(child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_data_addr,prot_to_type(PROT_READ|PROT_WRITE,1));
+        }
+        
+
+        child->mapped_info[DATA_SEGMENT].va = parent->mapped_info[i].va;
+        child->mapped_info[DATA_SEGMENT].npages = parent->mapped_info[i].npages;
+        child->mapped_info[DATA_SEGMENT].seg_type = DATA_SEGMENT;
+        child->total_mapped_region++;
+        // sprint("当前mapped_region的数量:%d",child->total_mapped_region);
+        break;
+
     }
   }
 
@@ -257,4 +285,48 @@ int do_fork( process* parent)
   insert_to_ready_queue( child );
 
   return child->pid;
+}
+
+int do_wait(uint64 pid){
+  int has_child=0;
+  if(pid==-1){      //parent在等待任意一个子进程
+    for(int i=0;i<NPROC;i++) 
+    {
+      if(procs[i].parent == current)
+      {
+        has_child=1;
+        if(procs[i].status== ZOMBIE)
+        {
+          procs[i].status = FREE;
+          return i;
+        }
+      }
+    }
+
+    if(!has_child) return -1;  //没有子进程等啥
+    else
+    {
+      insert_to_blocked_queue(current);
+      schedule();
+      return 0;     //有子进程但是还在run
+    }
+  }
+  else if(pid<NPROC&&pid>0)   //指定了某个子进程
+  {
+    if(procs[pid].parent!=current) return -1;  //指定子进程的父进程不对应
+    if(procs[pid].status == ZOMBIE)
+    {
+      procs[pid].status = FREE;
+      return pid;
+    }
+    else
+    {
+      insert_to_blocked_queue(current);
+      schedule();
+      return 0;
+    }
+  }
+  else return -1;   //非法子进程编号
+
+
 }

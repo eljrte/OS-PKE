@@ -446,6 +446,7 @@ int vfs_mkdir(const char *path) {
   struct dentry *parent = vfs_root_dentry;
   char miss_name[MAX_PATH_LEN];
 
+  sprint("f1");
   // lookup the dir, find its parent direntry
   struct dentry *file_dentry = lookup_final_dentry(path, &parent, miss_name);
   if (file_dentry) {
@@ -453,6 +454,7 @@ int vfs_mkdir(const char *path) {
     return -1;
   }
 
+  // sprint("f2");
   char basename[MAX_PATH_LEN];
   get_base_name(path, basename);
   if (strcmp(miss_name, basename) != 0) {
@@ -460,6 +462,7 @@ int vfs_mkdir(const char *path) {
     return -1;
   }
 
+  // sprint("f3");
   // do real mkdir
   struct dentry *new_dentry = alloc_vfs_dentry(basename, NULL, parent);
   struct vinode *new_dir_inode = viop_mkdir(parent->dentry_inode, new_dentry);
@@ -469,6 +472,7 @@ int vfs_mkdir(const char *path) {
     return -1;
   }
 
+  // sprint("f4");
   new_dentry->dentry_inode = new_dir_inode;
   new_dir_inode->ref++;
   hash_put_dentry(new_dentry);
@@ -510,8 +514,9 @@ int vfs_closedir(struct file *file) {
 struct dentry *lookup_final_dentry(const char *path, struct dentry **parent,
                                    char *miss_name) {
   char path_copy[MAX_PATH_LEN];
+  // sprint("f5");
   strcpy(path_copy, path);
-
+  // sprint("f6");
   // split the path, and retrieves a token at a time.
   // note: strtok() uses a static (local) variable to store the input path
   // string at the first time it is called. thus it can out a token each time.

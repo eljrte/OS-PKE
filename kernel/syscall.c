@@ -14,7 +14,7 @@
 #include "vmm.h"
 #include "sched.h"
 #include "proc_file.h"
-
+#include "elf.h"
 #include "spike_interface/spike_utils.h"
 
 //
@@ -36,6 +36,8 @@ ssize_t sys_user_exit(uint64 code) {
   sprint("User exit with code:%d.\n", code);
   // reclaim the current process, and reschedule. added @lab3_1
   free_process( current );
+  //在子进程结束之时，唤醒父进程
+  wakeup_parent( current );
   schedule();
   return 0;
 }
@@ -95,11 +97,12 @@ ssize_t sys_user_yield() {
   current->status=READY;
   insert_to_ready_queue(current);
   schedule();
-
-
   return 0;
 }
 
+ssize_t sys_user_wait(uint64 pid){
+  return do_wait(pid);
+}
 //
 // open file
 //
@@ -191,6 +194,7 @@ ssize_t sys_user_readdir(int fd, struct dir *vdir){
 //
 ssize_t sys_user_mkdir(char * pathva){
   char * pathpa = (char*)user_va_to_pa((pagetable_t)(current->pagetable), pathva);
+  // sprint("shit");
   return do_mkdir(pathpa);
 }
 
@@ -217,6 +221,17 @@ ssize_t sys_user_unlink(char * vfn){
   char * pfn = (char*)user_va_to_pa((pagetable_t)(current->pagetable), (void*)vfn);
   return do_unlink(pfn);
 }
+
+ssize_t sys_user_exec(char *command,char* para){
+  char *command_pa = (char*)user_va_to_pa((pagetable_t)(current->pagetable),(void*)command);
+  char *para_pa = (char*)user_va_to_pa((pagetable_t)(current->pagetable),(void*)para);
+
+  int res = do_exec(command_pa,para_pa,current);
+
+  return 0;
+
+}
+
 
 //
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
@@ -266,6 +281,10 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
       return sys_user_link((char *)a1, (char *)a2);
     case SYS_user_unlink:
       return sys_user_unlink((char *)a1);
+    case SYS_user_wait:
+      return sys_user_wait(a1);
+    case SYS_user_exec:
+      return sys_user_exec((char*)a1,(char*)a2);
     default:
       panic("Unknown syscall %ld \n", a0);
   }
