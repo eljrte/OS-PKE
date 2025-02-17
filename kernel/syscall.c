@@ -33,8 +33,7 @@ ssize_t sys_user_exit(uint64 code) {
   
   sync_barrier(&exit_cnt,NCPU);
 
-  // in lab1, PKE considers only one app (one process). 
-  // therefore, shutdown the system when the app calls exit()
+  // 由CPU0负责关闭模拟器 
   if(cpu_id == 0 )
   {
     sprint("hartid = %d: shutdown with code:%d.\n", cpu_id,code);
