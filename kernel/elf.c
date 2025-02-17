@@ -123,7 +123,7 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
             p->dir[dir_ind++] = off; while (*off != 0) off++; off++;
         }
         
-        sprint("%s\n",p->dir[dir_ind-1]);
+        sprint("读取的dir名:%s\n",p->dir[dir_ind-1]);
 
         off++;
         // get file name char pointer in this CU
@@ -133,7 +133,7 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
             p->file[file_ind++].dir = dir - 1 + dir_base;
             read_uleb128(NULL, &off); read_uleb128(NULL, &off);
             
-            // sprint("本次读取的文件名和所属文件夹序号:%s,%d\n",p->file[file_ind-1].file,p->file[file_ind-1].dir);
+            sprint("读取的文件名和所属文件夹序号:%s,%d\n",p->file[file_ind-1].file,p->file[file_ind-1].dir);
         }
         // 这里显示文件的初始行号为1
         off++; addr_line regs; regs.addr = 0; regs.file = 1; regs.line = 1;
@@ -198,10 +198,13 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
         }
 endop:;
     }
-    // for (int i = 0; i < p->line_ind; i++)
-    //     sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
+    sprint("line解析如下:\n");
+    for (int i = 0; i < p->line_ind; i++)
+        sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
 }
 
+
+uint64 debug_line_content = 0;
 //
 // load the elf segments to memory regions as we are in Bare mode in lab1
 //
@@ -225,6 +228,9 @@ elf_status elf_load(elf_ctx *ctx) {
     // actual loading
     if (elf_fpread(ctx, dest, ph_addr.memsz, ph_addr.off) != ph_addr.memsz)
       return EL_EIO;
+    
+    // sprint("本次的add:%llx size:%d",(uint64)dest,ph_addr.memsz);
+    debug_line_content = (uint64)dest + ph_addr.memsz;
   }
 
   return EL_OK;
@@ -258,7 +264,8 @@ static size_t parse_args(arg_buf *arg_bug_msg) {
 
 
 elf_sect_header debug_line_sh;
-char debug_line_content[16384];
+//char debug_line_content[16384];
+
 
 elf_status elf_load_debug_line_content(elf_ctx * ctx){
 
@@ -283,9 +290,15 @@ elf_status elf_load_debug_line_content(elf_ctx * ctx){
         }
     }
 
-    elf_fpread(ctx,(void*)&debug_line_content,debug_line_sh.size,debug_line_sh.offset);
-    make_addr_line(ctx,debug_line_content,debug_line_sh.size);
-    // sprint("ok");
+    sprint(".debug_line大小:%d B\n",debug_line_sh.size);
+    // sprint("debug_line_content: %llx", debug_line_content);
+    // elf_fpread(ctx,(void*)&debug_line_content,debug_line_sh.size,debug_line_sh.offset);
+    void *dest = elf_alloc_mb(ctx, debug_line_content,debug_line_content, debug_line_sh.size);
+    if (elf_fpread(ctx, dest, debug_line_sh.size, debug_line_sh.offset) != debug_line_sh.size) {
+        return EL_EIO;
+    }
+    make_addr_line(ctx,(char*)dest,debug_line_sh.size);
+    // sprint("okasasasas\n");
     return EL_OK;
 }
 
@@ -321,7 +334,7 @@ void load_bincode_from_host_elf(process *p) {
   // load elf. elf_load() is defined above.
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
-  // 在这里加载debug_line的信息 以为elf_load只加载运行相关的section
+  // 在这里加载debug_line的信息 因为elf_load只加载运行相关的section
   if (elf_load_debug_line_content(&elfloader) != EL_OK) panic("Fail on loading elf_debug_line.\n");
 
   // entry (virtual, also physical in lab1_x) address

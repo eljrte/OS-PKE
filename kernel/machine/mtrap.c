@@ -67,7 +67,7 @@ void print_error_line(uint64 error_addr){
   spike_file_stat(fd,&file);
   char buf[file.st_size];
   spike_file_read(fd,(void*)buf,file.st_size);
-  // sprint("%s",file_buf);
+  sprint("%s",buf);
 
   char *off = buf;
   uint64 file_line_id = 1;
@@ -88,11 +88,9 @@ void print_error_line(uint64 error_addr){
     }
     while(*off != '\n')  off++;
     off++; file_line_id++;
-
   }
 
 spike_file_close(fd);
-
 
 }
 
@@ -103,7 +101,7 @@ void handle_mtrap() {
   uint64 mcause = read_csr(mcause);
 
   uint64 mepc = read_csr(mepc);
-
+  sprint("");   //不是 为什么不加这句话就是错的啊
   print_error_line(mepc);
   switch (mcause) {
     case CAUSE_MTIMER:
