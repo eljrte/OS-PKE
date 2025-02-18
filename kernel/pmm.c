@@ -86,4 +86,5 @@ void pmm_init() {
   sprint("kernel memory manager is initializing ...\n");
   // create the list of free pages
   create_freepage_list(free_mem_start_addr, free_mem_end_addr);
+  // sprint("一共有多少块:%d",(free_mem_end_addr-free_mem_start_addr)/PGSIZE);
 }

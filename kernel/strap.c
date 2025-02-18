@@ -53,7 +53,7 @@ void handle_mtimer_trap() {
 
 }
 
-extern int pa_cnt[524287];
+extern int pa_cnt[32768];
 int is_pte_cow(pte_t* pte){
   if((*pte & PTE_RSW1) == 0) return 0;
   return 1;
@@ -74,7 +74,8 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
 
       pte_t* pte = page_walk(current->pagetable,stval,0);
-      if(pte && (*pte & PTE_RSW1))
+      // if(pte && (*pte & PTE_RSW1))
+      if(is_pte_cow(pte))
       {
         uint64 pa = PTE2PA(*pte);
         // sprint("我在这0");
@@ -85,15 +86,16 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
             memcpy((void*)new_pa,(void*)pa,PGSIZE);
             // sprint("我在这2");
 
-            *pte ^= PTE_V | PTE_RSW1;
+            // *pte ^= PTE_V | PTE_RSW1;
+            *pte &= ~PTE_V;
             map_pages((pagetable_t)current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)new_pa,prot_to_type(PROT_READ|PROT_WRITE,1)); 
 
-            inc_page_ref((uint64)new_pa);
+            // inc_page_ref((uint64)new_pa);
             dec_page_ref((uint64)pa);
         }
         else
         {
-            sprint("我在这4");
+            // sprint("我在这4");
             *pte |= PTE_W;
             *pte &= ~PTE_RSW1;
         }

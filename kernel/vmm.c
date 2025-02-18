@@ -222,7 +222,7 @@ void print_proc_vmspace(process* proc) {
   }
 }
 
-int pa_cnt[524287];
+int pa_cnt[32768];
 void inc_page_ref(uint64 pa){
   int index = (pa - 0x80000000) / 0x1000;
   // sprint("此时index:%d\n",index);

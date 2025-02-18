@@ -66,8 +66,13 @@ uint64 sys_user_allocate_page() {
 //
 // reclaim a page, indicated by "va". added @lab2_2
 //
+//这里要修改吧 判断是否为共享页
+extern int pa_cnt[32768];
 uint64 sys_user_free_page(uint64 va) {
-  user_vm_unmap((pagetable_t)current->pagetable, va, PGSIZE, 1);
+  int pa = lookup_pa(current->pagetable,va);
+  int index = (pa - 0x80000000) / 0x1000;
+  if(pa_cnt[index]==0) user_vm_unmap((pagetable_t)current->pagetable, va, PGSIZE, 1);
+  // user_vm_unmap((pagetable_t)current->pagetable, va, PGSIZE, 1);
   // add the reclaimed page to the free page list
   current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = va;
   return 0;

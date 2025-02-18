@@ -222,7 +222,7 @@ int do_fork( process* parent)
             // user_vm_map((pagetable_t)child->pagetable, heap_block, PGSIZE, (uint64)child_pa,
             //             prot_to_type(PROT_WRITE | PROT_READ, 1));
 
-            uint64 pa = lookup_pa(parent->pagetable,heap_block);
+            uint64 pa = lookup_pa(parent->pagetable,heap_block);   //获取原物理地址
             // sprint("pa值为:%llx\n",pa);
 
             //增加物理页引用计数
@@ -230,11 +230,14 @@ int do_fork( process* parent)
 
             //将父进程对应的页表项改为只读，并标记为 COW
             uint64 perm_r_special = prot_to_type(PROT_READ,1) | PTE_RSW1;
-            user_vm_map((pagetable_t)parent->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+            // user_vm_map((pagetable_t)parent->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+            map_pages((pagetable_t)parent->pagetable,heap_block,PGSIZE,pa,perm_r_special);
 
 
             //只读  //利用RSW位区分普通只读和copyonwrite
-            user_vm_map((pagetable_t)child->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+            // user_vm_map((pagetable_t)child->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+            map_pages((pagetable_t)child->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+
             // sprint("成功");
           }
 
