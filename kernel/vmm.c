@@ -242,7 +242,7 @@ uint64 better_alloc(uint64 n){
   if(n<PGSIZE){
   while(cur!=NULL)
   {
-    //符合条件  原区分裂 增加一个mcb来记录
+    //先使用最简单的首次适应 符合条件  原区分裂 增加一个mcb来记录
     if(cur->free==1&&cur->size>=n+sizeof(MCB))
     {
       cur->free=0;
@@ -297,31 +297,108 @@ uint64 better_alloc(uint64 n){
 
   //处理跨页面的 先简单点 跨两个页面
   //找最后一个块
+  int page_cnt = n/PGSIZE;
+  int remain = n - page_cnt*PGSIZE;
+  uint64 ret_res = 0;
+  //处理跨页面的 先简单点 跨两个页面
+  //找最后一个块
   while(cur->next!=NULL) cur=cur->next;
-  if(cur->free==1)
+  if(cur->free==1&&cur->size>remain)   //如果最后一个页可以适配余量 
   {
+    // sprint("22222");
+    ret_res = cur->va_start;
     cur->free=0;
     n-=cur->size;
 
-    void * pa=alloc_page();
-    uint64 start = g_ufree_page;
+    while(n>0)
+    {
+      void * pa=alloc_page();
+      uint64 start = g_ufree_page;
+      user_vm_map(current->pagetable,g_ufree_page,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+      g_ufree_page+=PGSIZE;
+
+      if(n>PGSIZE)
+      {
+        struct MCB* new_MCB = (struct MCB*)pa;
+        new_MCB->free=0;
+        new_MCB->next=NULL;
+        new_MCB->size=PGSIZE-sizeof(MCB);
+        new_MCB->va_start=start+sizeof(MCB);
+        new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+        n-=new_MCB->size;
+        
+        cur->next=new_MCB;
+        cur = new_MCB;
+      }
+      else  //可以分割
+      {
+        // sprint("333");
+        struct MCB* new_MCB = (struct MCB*)pa;
+        new_MCB->free=0;
+        new_MCB->next=NULL;
+        new_MCB->size=n;
+        new_MCB->va_start=start+sizeof(MCB);
+        new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+        
+        struct MCB* split_new_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
+        split_new_MCB->va_start = (new_MCB->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+        split_new_MCB->pa_start = (new_MCB->pa_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+        split_new_MCB->free=1;
+        split_new_MCB->size=PGSIZE-2*sizeof(MCB)-n;
+        split_new_MCB->next=new_MCB->next;
+        new_MCB->next=split_new_MCB;
+        break;
+      }
+    }
+
+    return ret_res;
+  }
+  else //不能分配余量 直接重开一个新的 最后一个放remain
+  {
+    void *pa;
+    uint64 start;
+    for(int i=0;i<page_cnt;i++)
+    {
+      if(i==0) ret_res = g_ufree_page;
+      pa = alloc_page();
+      start = g_ufree_page;
+      user_vm_map(current->pagetable,g_ufree_page,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+      g_ufree_page+=PGSIZE;
+
+      struct MCB* new_MCB = (struct MCB*)pa;
+      new_MCB->free=0;
+      new_MCB->next=NULL;
+      new_MCB->size=PGSIZE-sizeof(MCB);
+      new_MCB->va_start=start+sizeof(MCB);
+      new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+
+      cur->next = new_MCB;
+      cur = new_MCB;
+    }
+
+    pa = alloc_page();
+    start = g_ufree_page;
     user_vm_map(current->pagetable,g_ufree_page,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+    g_ufree_page+=PGSIZE;
+   
     struct MCB* new_MCB = (struct MCB*)pa;
     new_MCB->free=0;
     new_MCB->next=NULL;
-    new_MCB->size=n;
+    new_MCB->size=remain;
     new_MCB->va_start=start+sizeof(MCB);
     new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+    
+    cur->next=new_MCB;
 
-    struct MCB* split_new_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
-    split_new_MCB->va_start = (new_MCB->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
-    split_new_MCB->pa_start = (new_MCB->pa_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+    struct MCB* split_new_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + remain + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
+    split_new_MCB->va_start = (new_MCB->va_start + remain + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+    split_new_MCB->pa_start = (new_MCB->pa_start + remain + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
     split_new_MCB->free=1;
-    split_new_MCB->size=PGSIZE-2*sizeof(MCB)-n;
+    split_new_MCB->size=PGSIZE-2*sizeof(MCB)-remain;
     split_new_MCB->next=new_MCB->next;
     new_MCB->next=split_new_MCB;
+    return ret_res;
   }
-  return cur->va_start;
 }
 
 
