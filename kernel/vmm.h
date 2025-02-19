@@ -40,7 +40,7 @@ typedef struct MCB{
   uint64 pa_start;
   bool free;
   struct MCB* next;
-  int page_cnt;
+  int page_cnt;   //单page的就是0 跨page的，依次MCB 0 1 2 3 ... 
 }MCB;
 
 

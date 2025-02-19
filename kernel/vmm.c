@@ -230,10 +230,27 @@ void init_MCB_pool(){
   g_ufree_page += PGSIZE;
 }
 
+
+
+void debug_test()
+{
+  struct MCB* tmp = head_MCB;
+  //检测
+  int id=0;
+  while(tmp!=NULL)
+  {
+    id++;
+    sprint("相关信息:%d %d %d %d\n",tmp->size,tmp->page_cnt,tmp->va_start,tmp->free);
+    tmp = tmp->next;
+  }
+  sprint("\n");
+}
+
 uint64 better_alloc(uint64 n){
 
   if(first_malloc)
   {
+    // sprint("xixi");
     init_MCB_pool();
     first_malloc = FALSE;
   }
@@ -243,9 +260,11 @@ uint64 better_alloc(uint64 n){
   while(cur!=NULL)
   {
     //先使用最简单的首次适应 符合条件  原区分裂 增加一个mcb来记录
-    if(cur->free==1&&cur->size>=n+sizeof(MCB))
+    if(cur->free==1&&cur->size>=n)
     {
+      // debug_test();
       cur->free=0;
+      cur->page_cnt = 0;
       //这里是一波对齐？？？
       struct MCB* split_MCB = (struct MCB*)(((uint64)(cur->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
       split_MCB->va_start = (cur->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
@@ -256,8 +275,13 @@ uint64 better_alloc(uint64 n){
       // sprint("还剩下%d空间\n",split_MCB->size);
       cur->size = n;
       split_MCB->next=cur->next;
+      // sprint("奇怪%d\n",split_MCB->next->size);
+      if(split_MCB->next!=NULL) sprint("奇怪%d\n",split_MCB->next->size);
+      
       cur->next=split_MCB;
       //这里有个小bug 可能刚好消耗完，这个块就没了。  好像也没事
+      sprint("小块直接");
+      debug_test();
       return cur->va_start;
     }
     //发现没有满足条件的，那么分配一个新的page
@@ -265,13 +289,19 @@ uint64 better_alloc(uint64 n){
     else cur = cur->next;
   }
 
-  //分配足够多的page 起始是g_ufree_page
-  void* pa;
-  uint64 start = g_ufree_page;
+  //分配新的page 这里我们不一定是从g_ufree_page虚拟地址开始，前面可能有空的页 我们用user_heap
+  void* pa=alloc_page();
+  uint64 start;
   
-  //这里我们先简单点，假设只多分配一个page即可 后续需修改为可按需分配多page
-  pa = alloc_page();
-  user_vm_map(current->pagetable,g_ufree_page,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+  if(current->user_heap.free_pages_count>0)
+  {
+    start = current->user_heap.free_pages_address[--current->user_heap.free_pages_count];
+  }
+  else
+  {
+    start = g_ufree_page;
+  }
+  user_vm_map(current->pagetable,start,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
   g_ufree_page+=PGSIZE;
 
   struct MCB* new_MCB = (struct MCB*)pa;
@@ -289,9 +319,13 @@ uint64 better_alloc(uint64 n){
   split_MCB->pa_start = (new_MCB->pa_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
   split_MCB->size=PGSIZE-2*sizeof(MCB)-n;
   split_MCB->next = new_MCB->next;
+  split_MCB->free=1;
   new_MCB->next = split_MCB;
 
+  new_MCB->page_cnt=0;
 
+  sprint("新单块够用");
+  debug_test();
   return new_MCB->va_start;
   }
 
@@ -306,10 +340,12 @@ uint64 better_alloc(uint64 n){
   if(cur->free==1&&cur->size>remain)   //如果最后一个页可以适配余量 
   {
     // sprint("22222");
+
     ret_res = cur->va_start;
     cur->free=0;
     n-=cur->size;
-
+    cur->page_cnt=0; //标记这是跨页MCB的起点
+    int index = 0;
     while(n>0)
     {
       void * pa=alloc_page();
@@ -327,6 +363,7 @@ uint64 better_alloc(uint64 n){
         new_MCB->pa_start=(uint64)pa+sizeof(MCB);
         n-=new_MCB->size;
         
+        new_MCB->page_cnt = ++index;
         cur->next=new_MCB;
         cur = new_MCB;
       }
@@ -339,6 +376,10 @@ uint64 better_alloc(uint64 n){
         new_MCB->size=n;
         new_MCB->va_start=start+sizeof(MCB);
         new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+
+        new_MCB->page_cnt = ++index;
+        cur->next=new_MCB;
+        // sprint("这里的值%d\n",new_MCB->page_cnt);
         
         struct MCB* split_new_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
         split_new_MCB->va_start = (new_MCB->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
@@ -351,12 +392,15 @@ uint64 better_alloc(uint64 n){
       }
     }
 
+    sprint("跨页1");
+    debug_test();
     return ret_res;
   }
   else //不能分配余量 直接重开一个新的 最后一个放remain
   {
     void *pa;
     uint64 start;
+    int index = 0;
     for(int i=0;i<page_cnt;i++)
     {
       if(i==0) ret_res = g_ufree_page;
@@ -372,6 +416,8 @@ uint64 better_alloc(uint64 n){
       new_MCB->va_start=start+sizeof(MCB);
       new_MCB->pa_start=(uint64)pa+sizeof(MCB);
 
+      new_MCB->page_cnt=index++;
+      
       cur->next = new_MCB;
       cur = new_MCB;
     }
@@ -387,7 +433,8 @@ uint64 better_alloc(uint64 n){
     new_MCB->size=remain;
     new_MCB->va_start=start+sizeof(MCB);
     new_MCB->pa_start=(uint64)pa+sizeof(MCB);
-    
+    new_MCB->page_cnt=index++;
+
     cur->next=new_MCB;
 
     struct MCB* split_new_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + remain + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
@@ -397,6 +444,9 @@ uint64 better_alloc(uint64 n){
     split_new_MCB->size=PGSIZE-2*sizeof(MCB)-remain;
     split_new_MCB->next=new_MCB->next;
     new_MCB->next=split_new_MCB;
+
+    sprint("跨页2");
+    debug_test();
     return ret_res;
   }
 }
@@ -419,8 +469,9 @@ uint64 better_alloc(uint64 n){
 // }
 void better_free(uint64 va){
   struct MCB* cur = head_MCB;
+
   if(cur==NULL) panic("cannot free");
-  struct MCB* cur_nxt = head_MCB->next;
+  struct MCB* cur_nxt = cur->next;
   //处理只有一个mcb的情况
   if(cur_nxt==NULL)
   {
@@ -428,46 +479,126 @@ void better_free(uint64 va){
     return ;
   }
   
-  //正常情况
+  //正常情况   在这里现在还要考虑跨页释放
   while(cur_nxt!=NULL)
   {
+    // sprint("1111");
     //如果是第一个匹配上了
     if(cur->va_start==va)
     {
+      // sprint("222");
       cur->free=1;
       //合并后方
-      if(cur_nxt->free==1)
+      if(cur_nxt->free==1 && cur_nxt->va_start-cur->va_start<4096)
       {
         cur->next=cur_nxt->next;
         cur->size+=sizeof(MCB)+cur_nxt->size;
-        return ;
       }
+
+      if(cur->size== PGSIZE-sizeof(MCB)) 
+      {
+        sprint("333");
+        head_MCB=cur->next;
+        current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur->va_start-sizeof(MCB);
+        user_vm_unmap((pagetable_t)current->pagetable,cur->va_start-sizeof(MCB),PGSIZE,1);
+      }
+
+      // sprint("处理有跨页%d\n",cur_nxt->page_cnt);
+      //处理有跨页的
+      if(cur_nxt->page_cnt!=0)
+      {
+        // sprint("444");
+        while(1)
+        {
+          if(cur_nxt->size==PGSIZE-sizeof(MCB))
+          {
+            // sprint("9");
+            user_vm_unmap((pagetable_t)current->pagetable,cur_nxt->va_start-sizeof(MCB),PGSIZE,1);
+            current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur_nxt->va_start-sizeof(MCB);
+            head_MCB = cur_nxt->next;
+            cur_nxt=cur_nxt->next;
+          }
+          else
+          {
+            cur_nxt->free==1;
+            cur_nxt=cur_nxt->next;
+            // sprint("555");
+          }
+          if(cur_nxt==NULL || cur_nxt->page_cnt==0) break;
+        }
+      }
+      // sprint("666");
+      sprint("释放2");
+      debug_test();
+      // sprint("当前回收页数目:%d",current->user_heap.free_pages_count);
+      // sprint("666");
+      return ;
     }
     if(cur_nxt->va_start==va)
     {
       cur_nxt->free=1;
 
+      int flag=0;
       //合并后方
-      if(cur_nxt->next!=NULL && cur_nxt->next->free==1)
+      if(cur_nxt->next!=NULL && cur_nxt->next->free==1 &&cur_nxt->next->va_start-cur_nxt->va_start<4096)
       {
         cur_nxt->size=cur_nxt->size+sizeof(MCB)+cur_nxt->next->size;
         cur_nxt->next=cur_nxt->next->next;
       }
-      //合并前方
-      if(cur->free==1)
+      if(cur_nxt->size == PGSIZE - sizeof(MCB))
       {
+        sprint("111");
+        user_vm_unmap((pagetable_t)current->pagetable,cur_nxt->va_start-sizeof(MCB),PGSIZE,1);
+        current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur_nxt->va_start-sizeof(MCB);
         cur->next=cur_nxt->next;
-        cur->size+=sizeof(MCB)+cur_nxt->size;
+        flag=1;
       }
+
+      //合并前方  这个有点难 有可能隔着页了
+      // if(cur->free==1)
+      // {
+      //   cur->next=cur_nxt->next;
+      //   cur->size+=sizeof(MCB)+cur_nxt->size;
+      // }
       //当整个page都空了的时候，需要释放该page
-      if((cur->va_start-sizeof(MCB)-USER_FREE_ADDRESS_START)%4096==0 &&  cur->next->va_start-cur->va_start > 4096) 
+      // if((cur->va_start-sizeof(MCB)-USER_FREE_ADDRESS_START)%4096==0 &&  cur->next->va_start-cur->va_start > 4096) 
+      // {
+
+      //   user_vm_unmap((pagetable_t)current->pagetable,cur->va_start-sizeof(MCB),PGSIZE,1);
+      //   current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur->next->va_start-sizeof(MCB);
+      // }
+
+      //跨页
+      if(cur_nxt->next!=NULL &&cur_nxt->next->page_cnt!=0)
       {
-        user_vm_unmap((pagetable_t)current->pagetable,cur->va_start-sizeof(MCB),PGSIZE,1);
-        current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur->next->va_start-sizeof(MCB);
+        cur=cur_nxt;
+        cur_nxt=cur_nxt->next;
+        while(1)
+        {
+          if(cur_nxt->size==PGSIZE-sizeof(MCB))
+          {
+            sprint("222");
+            user_vm_unmap((pagetable_t)current->pagetable,cur_nxt->va_start-sizeof(MCB),PGSIZE,1);
+            current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur_nxt->va_start-sizeof(MCB);
+            cur->next=cur_nxt->next;
+            // cur = cur_nxt;
+            cur_nxt=cur_nxt->next;
+          }
+          else
+          {
+            cur_nxt->free=1;
+            // cur->next = cur_nxt;
+            cur_nxt=cur_nxt->next;
+          }
+          if(cur_nxt==NULL || cur_nxt->page_cnt==0) break;
+        }
       }
+      sprint("释放1");
+      debug_test();
       break;
     }
     cur = cur->next;
     cur_nxt = cur_nxt->next;
+
   }
 }
