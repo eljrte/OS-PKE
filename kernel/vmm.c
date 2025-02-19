@@ -231,6 +231,7 @@ void init_MCB_pool(){
 }
 
 uint64 better_alloc(uint64 n){
+
   if(first_malloc)
   {
     init_MCB_pool();
@@ -238,6 +239,7 @@ uint64 better_alloc(uint64 n){
   }
   struct MCB* cur = head_MCB;
 
+  if(n<PGSIZE){
   while(cur!=NULL)
   {
     //符合条件  原区分裂 增加一个mcb来记录
@@ -275,28 +277,120 @@ uint64 better_alloc(uint64 n){
   struct MCB* new_MCB = (struct MCB*)pa;
   new_MCB->free=0;
   new_MCB->next=NULL;
-  new_MCB->size=PGSIZE-sizeof(MCB)-n;
+  new_MCB->size=n;
   new_MCB->va_start=start+sizeof(MCB);
   new_MCB->pa_start=(uint64)pa+sizeof(MCB);
 
-  
-
+    
   cur->next=new_MCB; 
-  return new_MCB->va_start;
 
+  struct MCB* split_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
+  split_MCB->va_start = (new_MCB->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+  split_MCB->pa_start = (new_MCB->pa_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+  split_MCB->size=PGSIZE-2*sizeof(MCB)-n;
+  split_MCB->next = new_MCB->next;
+  new_MCB->next = split_MCB;
+
+
+  return new_MCB->va_start;
+  }
+
+  //处理跨页面的 先简单点 跨两个页面
+  //找最后一个块
+  while(cur->next!=NULL) cur=cur->next;
+  if(cur->free==1)
+  {
+    cur->free=0;
+    n-=cur->size;
+
+    void * pa=alloc_page();
+    uint64 start = g_ufree_page;
+    user_vm_map(current->pagetable,g_ufree_page,PGSIZE,(uint64)pa,prot_to_type(PROT_WRITE | PROT_READ, 1));
+    struct MCB* new_MCB = (struct MCB*)pa;
+    new_MCB->free=0;
+    new_MCB->next=NULL;
+    new_MCB->size=n;
+    new_MCB->va_start=start+sizeof(MCB);
+    new_MCB->pa_start=(uint64)pa+sizeof(MCB);
+
+    struct MCB* split_new_MCB = (struct MCB*)(((uint64)(new_MCB->pa_start + n + sizeof(MCB)) + sizeof(void*) - 1) & ~(sizeof(void*) - 1));
+    split_new_MCB->va_start = (new_MCB->va_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+    split_new_MCB->pa_start = (new_MCB->pa_start + n + sizeof(MCB) + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+    split_new_MCB->free=1;
+    split_new_MCB->size=PGSIZE-2*sizeof(MCB)-n;
+    split_new_MCB->next=new_MCB->next;
+    new_MCB->next=split_new_MCB;
+  }
+  return cur->va_start;
 }
 
+
+
+// void better_free(uint64 va){
+//   struct MCB* cur = head_MCB;
+//   while(cur!=NULL)
+//   {
+//     if(cur->va_start==va)
+//     {
+//       cur->free=1;
+
+//       //当整个page都空了的时候，需要释放该page
+//       // if(cur->va_start==)
+//       break;
+//     }
+//   }
+// }
 void better_free(uint64 va){
   struct MCB* cur = head_MCB;
-  while(cur!=NULL)
+  if(cur==NULL) panic("cannot free");
+  struct MCB* cur_nxt = head_MCB->next;
+  //处理只有一个mcb的情况
+  if(cur_nxt==NULL)
   {
+    if(cur->va_start==va) cur->free=1;
+    return ;
+  }
+  
+  //正常情况
+  while(cur_nxt!=NULL)
+  {
+    //如果是第一个匹配上了
     if(cur->va_start==va)
     {
       cur->free=1;
+      //合并后方
+      if(cur_nxt->free==1)
+      {
+        cur->next=cur_nxt->next;
+        cur->size+=sizeof(MCB)+cur_nxt->size;
+        return ;
+      }
+    }
+    if(cur_nxt->va_start==va)
+    {
+      cur_nxt->free=1;
 
+      //合并后方
+      if(cur_nxt->next!=NULL && cur_nxt->next->free==1)
+      {
+        cur_nxt->size=cur_nxt->size+sizeof(MCB)+cur_nxt->next->size;
+        cur_nxt->next=cur_nxt->next->next;
+      }
+      //合并前方
+      if(cur->free==1)
+      {
+        cur->next=cur_nxt->next;
+        cur->size+=sizeof(MCB)+cur_nxt->size;
+      }
       //当整个page都空了的时候，需要释放该page
-      // if(cur->va_start==)
+      if((cur->va_start-sizeof(MCB)-USER_FREE_ADDRESS_START)%4096==0 &&  cur->next->va_start-cur->va_start > 4096) 
+      {
+        user_vm_unmap((pagetable_t)current->pagetable,cur->va_start-sizeof(MCB),PGSIZE,1);
+        current->user_heap.free_pages_address[current->user_heap.free_pages_count++] = cur->next->va_start-sizeof(MCB);
+      }
       break;
     }
+    cur = cur->next;
+    cur_nxt = cur_nxt->next;
   }
 }

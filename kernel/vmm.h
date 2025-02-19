@@ -40,6 +40,7 @@ typedef struct MCB{
   uint64 pa_start;
   bool free;
   struct MCB* next;
+  int page_cnt;
 }MCB;
 
 

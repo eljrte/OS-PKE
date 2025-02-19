@@ -22,7 +22,7 @@ typedef struct elf_info_t {
 static void *elf_alloc_mb(elf_ctx *ctx, uint64 elf_pa, uint64 elf_va, uint64 size) {
   elf_info *msg = (elf_info *)ctx->info;
   // we assume that size of proram segment is smaller than a page.
-  kassert(size < PGSIZE);
+  kassert(size <PGSIZE );
   void *pa = alloc_page();
   if (pa == 0) panic("uvmalloc mem alloc falied\n");
 

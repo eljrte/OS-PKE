@@ -53,6 +53,13 @@ void load_user_program(process *proc) {
   // USER_STACK_TOP = 0x7ffff000, defined in kernel/memlayout.h
   proc->trapframe->regs.sp = USER_STACK_TOP;  //virtual address of user stack top
 
+  //在这里把proc的user_heap初始化以下
+  proc->user_heap.heap_top = USER_FREE_ADDRESS_START;
+  proc->user_heap.heap_bottom=USER_FREE_ADDRESS_START;
+  proc->user_heap.free_pages_count=0;
+
+
+
   sprint("user frame 0x%lx, user stack 0x%lx, user kstack 0x%lx \n", proc->trapframe,
          proc->trapframe->regs.sp, proc->kstack);
 
@@ -73,6 +80,8 @@ void load_user_program(process *proc) {
   // here, we assume that the size of usertrap.S is smaller than a page.
   user_vm_map((pagetable_t)proc->pagetable, (uint64)trap_sec_start, PGSIZE, (uint64)trap_sec_start,
          prot_to_type(PROT_READ | PROT_EXEC, 0));
+  
+
 }
 
 //
@@ -100,6 +109,8 @@ int s_start(void) {
   load_user_program(&user_app);
 
   sprint("Switch to user mode...\n");
+ 
+
   // switch_to() is defined in kernel/process.c
   switch_to(&user_app);
 
