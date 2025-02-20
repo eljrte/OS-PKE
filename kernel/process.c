@@ -217,10 +217,19 @@ int do_fork( process* parent)
           if (free_block_filter[(heap_block - heap_bottom) / PGSIZE])  // skip free blocks
             continue;
 
-          void* child_pa = alloc_page();
-          memcpy(child_pa, (void*)lookup_pa(parent->pagetable, heap_block), PGSIZE);
-          user_vm_map((pagetable_t)child->pagetable, heap_block, PGSIZE, (uint64)child_pa,
-                      prot_to_type(PROT_WRITE | PROT_READ, 1));
+          // void* child_pa = alloc_page();
+          // memcpy(child_pa, (void*)lookup_pa(parent->pagetable, heap_block), PGSIZE);
+          // user_vm_map((pagetable_t)child->pagetable, heap_block, PGSIZE, (uint64)child_pa,
+          //             prot_to_type(PROT_WRITE | PROT_READ, 1));
+
+          uint64 pa = lookup_pa(parent->pagetable,heap_block);
+
+          inc_page_ref(pa);
+          
+          uint64 perm_r_special = prot_to_type(PROT_READ,1) | PTE_RSW1;
+          map_pages((pagetable_t)parent->pagetable,heap_block,PGSIZE,pa,perm_r_special);
+
+          map_pages((pagetable_t)child->pagetable,heap_block,PGSIZE,pa,perm_r_special);
         }
 
         child->mapped_info[HEAP_SEGMENT].npages = parent->mapped_info[HEAP_SEGMENT].npages;
@@ -261,11 +270,15 @@ int do_fork( process* parent)
           uint64 parent_data_addr = (uint64)lookup_pa(parent->pagetable,parent->mapped_info[DATA_SEGMENT].va+j*PGSIZE);
           
           //给子进程data段分配一个页
-          uint64 child_data_addr = (uint64)alloc_page();
+          // uint64 child_data_addr = (uint64)alloc_page();
 
-          memcpy((void*)child_data_addr,(void*)parent_data_addr,PGSIZE);
+          // memcpy((void*)child_data_addr,(void*)parent_data_addr,PGSIZE);
 
-          map_pages(child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_data_addr,prot_to_type(PROT_READ|PROT_WRITE,1));
+          inc_page_ref(parent_data_addr);
+          uint64 perm_r_special = prot_to_type(PROT_READ,1) | PTE_RSW1;
+          
+          map_pages((pagetable_t)parent->pagetable,parent->mapped_info[DATA_SEGMENT].va+j*PGSIZE,PGSIZE,parent_data_addr,perm_r_special);
+          map_pages((pagetable_t)child->pagetable,parent->mapped_info[DATA_SEGMENT].va+j*PGSIZE,PGSIZE,parent_data_addr,perm_r_special);
         }
         
 

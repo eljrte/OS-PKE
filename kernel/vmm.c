@@ -23,7 +23,7 @@ int map_pages(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm)
   for (first = ROUNDDOWN(va, PGSIZE), last = ROUNDDOWN(va + size - 1, PGSIZE);
       first <= last; first += PGSIZE, pa += PGSIZE) {
     if ((pte = page_walk(page_dir, first, 1)) == 0) return -1;
-    if (*pte & PTE_V)
+    if ((*pte & PTE_V) && (perm & PTE_RSW1)==0)
       panic("map_pages fails on mapping va (0x%lx) to pa (0x%lx)", first, pa);
     *pte = PA2PTE(pa) | perm | PTE_V;                   
   }
@@ -220,4 +220,16 @@ void print_proc_vmspace(process* proc) {
     }
     sprint( ", mapped to pa:%lx\n", lookup_pa(proc->pagetable, proc->mapped_info[i].va) );
   }
+}
+
+int pa_cnt[32768];
+void inc_page_ref(uint64 pa){
+  int index = (pa - 0x80000000) / 0x1000;
+  // sprint("此时index:%d\n",index);
+  pa_cnt[index] ++;
+}
+
+void dec_page_ref(uint64 pa){
+  int index = (pa - 0x80000000) / 0x1000;
+  if(pa_cnt[index]>0) pa_cnt[index] --;
 }

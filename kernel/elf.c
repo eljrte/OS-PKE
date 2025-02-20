@@ -33,7 +33,7 @@ static void *elf_alloc_mb(elf_ctx *ctx, uint64 elf_pa, uint64 elf_va, uint64 siz
 
   memset((void *)pa, 0, PGSIZE);
   user_vm_map((pagetable_t)msg->p->pagetable, elf_va, PGSIZE, (uint64)pa,
-         prot_to_type(PROT_WRITE | PROT_READ | PROT_EXEC, 1));
+         prot_to_type(PROT_WRITE | PROT_READ | PROT_EXEC, 1)|PTE_RSW1);
 
   return pa;
 }
@@ -80,8 +80,9 @@ elf_status elf_load(elf_ctx *ctx) {
     if (ph_addr.vaddr + ph_addr.memsz < ph_addr.vaddr) return EL_ERR;
 
     // allocate memory block before elf loading
+    // sprint("11");
     void *dest = elf_alloc_mb(ctx, ph_addr.vaddr, ph_addr.vaddr, ph_addr.memsz);
-
+    
     // actual loading
     if (elf_fpread(ctx, dest, ph_addr.memsz, ph_addr.off) != ph_addr.memsz)
       return EL_EIO;
@@ -120,7 +121,7 @@ void load_bincode_from_host_elf(process *p, char *filename) {
   elf_ctx elfloader;
   // elf_info is defined above, used to tie the elf file and its corresponding process.
   elf_info info;
-
+  // sprint("在这%s里",filename);
   //这里就是使用的vfs导入elf的
   info.f = vfs_open(filename, O_RDONLY);
   info.p = p;
@@ -146,74 +147,87 @@ void load_bincode_from_host_elf(process *p, char *filename) {
 
 
 void exec_process_helper(process* p){
- // init proc[i]'s vm space
-  p->trapframe = (trapframe *)alloc_page();  //trapframe, used to save context
-  memset(p->trapframe, 0, sizeof(trapframe));
+  // sprint("释放堆前,%d\n",p->mapped_info[HEAP_SEGMENT].npages);
+  // 释放掉之前stack对应的页
+  // user_vm_unmap(p->pagetable,p->mapped_info[STACK_SEGMENT].va,PGSIZE,1);
 
-  // page directory
-  p->pagetable = (pagetable_t)alloc_page();
-  memset((void *)p->pagetable, 0, PGSIZE);
+  // //尝试释放一下堆的空间  
+  //发现释放失败 为啥嘞 因为command保存在栈里！你释放了不就没了 后面导入elf直接爆炸
+  // int free_block_filter[MAX_HEAP_PAGES];
+  // memset(free_block_filter, 0, MAX_HEAP_PAGES);
+  // uint64 heap_bottom = p->user_heap.heap_bottom;
+  // for (int i = 0; i < p->user_heap.free_pages_count; i++) {
+  //   int index = (p->user_heap.free_pages_address[i] - heap_bottom) / PGSIZE;
+  //   free_block_filter[index] = 1;
+  // }
 
-  p->kstack = (uint64)alloc_page() + PGSIZE;   //user kernel stack top
-  uint64 user_stack = (uint64)alloc_page();       //phisical address of user stack bottom
-  p->trapframe->regs.sp = USER_STACK_TOP;  //virtual address of user stack top
+  // for(int64 heap_block = current->user_heap.heap_bottom;
+  //   heap_block < current->user_heap.heap_top; heap_block += PGSIZE){
+  //     if(!free_block_filter[(heap_block - heap_bottom) / PGSIZE])
+  //       user_vm_unmap(p->pagetable,heap_block,PGSIZE,1);
+  // }
+  // sprint("释放堆后,%d\n",p->mapped_info[HEAP_SEGMENT].npages);
+ 
+  //开始集成COW  Heap段集成完毕  后续集成data  开始集成data cow finish
+ 
+  //开始尝试能不能不清零pagetable 处理一下map_pages  试验成功 这里我们就不重置堆了 带着父进程的堆走下去
 
-  // allocates a page to record memory regions (segments)
-  p->mapped_info = (mapped_region*)alloc_page();
-  memset( p->mapped_info, 0, PGSIZE );
+  //pagetale清零 把fork时映射的东西去掉 现在主要是CODE_SEGMENT 不清除的话 不能二次映射了
+  // memset((void *)p->pagetable, 0, PGSIZE);   
 
-  // map user stack in userspace
-  user_vm_map((pagetable_t)p->pagetable, USER_STACK_TOP - PGSIZE, PGSIZE,
-    user_stack, prot_to_type(PROT_WRITE | PROT_READ, 1));
+  // memset(p->trapframe, 0, sizeof(trapframe)); //trapframe清零
+
+  //stack重新分配页
+  // uint64 user_stack = (uint64)alloc_page();  
+  p->trapframe->regs.sp = USER_STACK_TOP;  //重置栈顶
+
+  // sprint("1");
+  // user_vm_map((pagetable_t)p->pagetable, USER_STACK_TOP - PGSIZE, PGSIZE,
+  //   user_stack, prot_to_type(PROT_WRITE | PROT_READ, 1));
   p->mapped_info[STACK_SEGMENT].va = USER_STACK_TOP - PGSIZE;
   p->mapped_info[STACK_SEGMENT].npages = 1;
-  p->mapped_info[STACK_SEGMENT].seg_type = STACK_SEGMENT;
 
   // map trapframe in user space (direct mapping as in kernel space).
-  user_vm_map((pagetable_t)p->pagetable, (uint64)p->trapframe, PGSIZE,
-    (uint64)p->trapframe, prot_to_type(PROT_WRITE | PROT_READ, 0));
-  p->mapped_info[CONTEXT_SEGMENT].va = (uint64)p->trapframe;
-  p->mapped_info[CONTEXT_SEGMENT].npages = 1;
-  p->mapped_info[CONTEXT_SEGMENT].seg_type = CONTEXT_SEGMENT;
+  // user_vm_map((pagetable_t)p->pagetable, (uint64)p->trapframe, PGSIZE,
+  //   (uint64)p->trapframe, prot_to_type(PROT_WRITE | PROT_READ, 0));
 
   // map S-mode trap vector section in user space (direct mapping as in kernel space)
   // we assume that the size of usertrap.S is smaller than a page.
-  user_vm_map((pagetable_t)p->pagetable, (uint64)trap_sec_start, PGSIZE,
-    (uint64)trap_sec_start, prot_to_type(PROT_READ | PROT_EXEC, 0));
-  p->mapped_info[SYSTEM_SEGMENT].va = (uint64)trap_sec_start;
-  p->mapped_info[SYSTEM_SEGMENT].npages = 1;
-  p->mapped_info[SYSTEM_SEGMENT].seg_type = SYSTEM_SEGMENT;
+  // user_vm_map((pagetable_t)p->pagetable, (uint64)trap_sec_start, PGSIZE,
+  //   (uint64)trap_sec_start, prot_to_type(PROT_READ | PROT_EXEC, 0));
+
 
   sprint("in alloc_proc. user frame 0x%lx, user stack 0x%lx, user kstack 0x%lx \n",
     p->trapframe, p->trapframe->regs.sp, p->kstack);
 
-  // initialize the process's heap manager
-  p->user_heap.heap_top = USER_FREE_ADDRESS_START;
-  p->user_heap.heap_bottom = USER_FREE_ADDRESS_START;
-  p->user_heap.free_pages_count = 0;
-
+  
   // map user heap in userspace
-  p->mapped_info[HEAP_SEGMENT].va = USER_FREE_ADDRESS_START;
-  p->mapped_info[HEAP_SEGMENT].npages = 0;  // no pages are mapped to heap yet.
-  p->mapped_info[HEAP_SEGMENT].seg_type = HEAP_SEGMENT;
-
-  p->total_mapped_region = 4;
-
-  p->pfiles = init_proc_file_management();
-
+  //fork的时候分配的物理页现在不好回收 因为也没有索引确定哪些有效之类的 后续使用COW进行处理
+  // sprint("此时子进程的heap有:%d\n",p->mapped_info[HEAP_SEGMENT].npages );
+  // p->mapped_info[HEAP_SEGMENT].npages = 0;  // no pages are mapped to heap yet.
+  // p->mapped_info[HEAP_SEGMENT].va = USER_FREE_ADDRESS_START; 
+  // p->user_heap.heap_top = USER_FREE_ADDRESS_START;
+  // p->user_heap.heap_bottom = USER_FREE_ADDRESS_START;
+  // p->user_heap.free_pages_count = 0;
+  
+  // sprint("hhaha");
 }
 
 
 
 //在这个实验中，直接更改主程序的加载方式，全部从vfs中加载
 //注意 在RISC-V中，main函数的参数argv保存在a1寄存器中
+//这里的command para都是物理地址
 int do_exec(char* command, char* para, process* p){
   //我们先清空一下process
   //elf中会导入code_segment和data_segment 我们负责重新规划 user_stack user_kernel_stack trapframe trapsec_start
   //这里模仿allc_process
   exec_process_helper(p);
 
+  // exec_helper(p);
+
   load_bincode_from_host_elf(p,command);
+
 
   //然后传入一下参数 我们只需要传入一个地址即可
   //该地址与我们的para关联即可
