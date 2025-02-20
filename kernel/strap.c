@@ -100,6 +100,13 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
         }
       }
       else{ 
+        //确保是超过了我们分配的heap区地址
+        if(stval < current->trapframe->regs.sp && stval > current->user_heap.heap_top)
+        {
+          // sprint("handle_page_fault转换成物理地址(栈情况): %lx\n", (uint64)(user_va_to_pa(current->pagetable,(void*)(stval))));
+          panic("this address is not available!");
+        }
+        if(stval > USER_STACK_TOP - 20 * 4*1024 && stval < USER_STACK_TOP)
         map_pages(current->pagetable,ROUNDDOWN(stval,PGSIZE),PGSIZE,(uint64)alloc_page(),prot_to_type(PROT_READ|PROT_WRITE,1));
       // sprint("我在这5");
       }

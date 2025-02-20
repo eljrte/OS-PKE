@@ -186,3 +186,17 @@ void printpa(int* va)
 {
   do_user_call(SYS_user_printpa, (uint64)va, 0, 0, 0, 0, 0, 0);
 }
+
+
+
+int sem_new(int value){
+  return do_user_call(SYS_user_semnew, value, 0, 0, 0, 0, 0, 0);
+}
+
+void sem_P(int sem_id){
+  do_user_call(SYS_user_semp, sem_id, 0, 0, 0, 0, 0, 0);
+}
+
+void sem_V(int sem_id){
+  do_user_call(SYS_user_semv, sem_id, 0, 0, 0, 0, 0, 0);
+}

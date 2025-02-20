@@ -106,6 +106,12 @@ USER_W_OBJS  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_W_CPPS)))
 
 USER_W_TARGET 	:= $(HOSTFS_ROOT)/bin/app_cow
 
+USER_S_CPPS 		:= user/app_semaphore.c user/user_lib.c
+
+USER_S_OBJS  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_S_CPPS)))
+
+USER_S_TARGET 	:= $(HOSTFS_ROOT)/bin/app_semaphore
+
 #------------------------targets------------------------
 $(OBJ_DIR):
 	@-mkdir -p $(OBJ_DIR)	
@@ -119,6 +125,7 @@ $(OBJ_DIR):
 	@-mkdir -p $(dir $(USER_C_OBJS))
 	@-mkdir -p $(dir $(USER_O_OBJS))
 	@-mkdir -p $(dir $(USER_W_OBJS))
+	@-mkdir -p $(dir $(USER_S_OBJS))
 	
 $(OBJ_DIR)/%.o : %.c
 	@echo "compiling" $<
@@ -186,15 +193,21 @@ $(USER_W_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_W_OBJS)
 	@$(COMPILE) --entry=main $(USER_W_OBJS) $(UTIL_LIB) -o $@
 	@echo "User app has been built into" \"$@\"
 
+$(USER_S_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_S_OBJS)
+	@echo "linking" $@	...	
+	-@mkdir -p $(HOSTFS_ROOT)/bin
+	@$(COMPILE) --entry=main $(USER_S_OBJS) $(UTIL_LIB) -o $@
+	@echo "User app has been built into" \"$@\"
+
 -include $(wildcard $(OBJ_DIR)/*/*.d)
 -include $(wildcard $(OBJ_DIR)/*/*/*.d)
 
 .DEFAULT_GOAL := $(all)
 
-all: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET) $(USER_M_TARGET) $(USER_T_TARGET) $(USER_C_TARGET) $(USER_O_TARGET)  $(USER_W_TARGET)
+all: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET) $(USER_M_TARGET) $(USER_T_TARGET) $(USER_C_TARGET) $(USER_O_TARGET)  $(USER_W_TARGET) $(USER_S_TARGET)
 .PHONY:all
 
-run: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET) $(USER_M_TARGET) $(USER_T_TARGET) $(USER_C_TARGET) $(USER_O_TARGET)  $(USER_W_TARGET)
+run: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET) $(USER_M_TARGET) $(USER_T_TARGET) $(USER_C_TARGET) $(USER_O_TARGET)  $(USER_W_TARGET) $(USER_S_TARGET)
 	@echo "********************HUST PKE********************"
 	spike $(KERNEL_TARGET) /bin/app_shell
 

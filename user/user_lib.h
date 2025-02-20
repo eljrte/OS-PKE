@@ -14,7 +14,7 @@ void naive_free(void* va);
 int fork();
 void yield();
 void wait(int pid);
-void printpa(int* va);
+
 
 // added @ lab4_1
 int open(const char *pathname, int flags);
@@ -36,6 +36,14 @@ int link_u(const char *fn1, const char *fn2);
 int unlink_u(const char *fn);
 
 int exec(const char *command,const char *para);
+
+//added @lab3_C2
+int sem_new(int value);
+void sem_P(int sem_id);
+void sem_V(int sem_id);
+
+//added @ lab3_C3
+void printpa(int* va);
 
 #endif
 

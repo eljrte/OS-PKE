@@ -95,6 +95,13 @@ typedef struct process_t {
   proc_file_management *pfiles;
 }process;
 
+typedef struct Semaphore{
+  int value;
+  process * sem_queue_head;
+}Sem;
+
+
+
 // switch to run user app
 void switch_to(process*);
 
@@ -108,6 +115,12 @@ int free_process( process* proc );
 int do_fork(process* parent);
 //wait for a child 
 int do_wait(uint64 pid);
+
+int do_sem_new(int value);
+
+int do_semp(int sem_id);
+
+int do_semv(int sem_id);
 
 // current running process
 extern process* current;
