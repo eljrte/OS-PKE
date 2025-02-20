@@ -158,6 +158,7 @@ process* alloc_process() {
   procs[i].pfiles = init_proc_file_management();
   sprint("in alloc_proc. build proc_file_management successfully.\n");
 
+  // if(procs[i].mapped_info[5]==NULL) sprint("猪猪侠");
   // return after initialization.
   return &procs[i];
 }
@@ -199,6 +200,7 @@ int do_fork( process* parent)
           (void*)lookup_pa(parent->pagetable, parent->mapped_info[i].va), PGSIZE );
         break;
       case HEAP_SEGMENT:
+        // sprint("111");
         // build a same heap for child process.
 
         // convert free_pages_address into a filter to skip reclaimed blocks in the heap
@@ -238,6 +240,7 @@ int do_fork( process* parent)
         memcpy((void*)&child->user_heap, (void*)&parent->user_heap, sizeof(parent->user_heap));
         break;
       case CODE_SEGMENT:
+        // sprint("222");
         // TODO (lab3_1): implment the mapping of child code segment to parent's
         // code segment.
         // hint: the virtual address mapping of code segment is tracked in mapped_info
@@ -255,13 +258,13 @@ int do_fork( process* parent)
 
         // after mapping, register the vm region (do not delete codes below!)
         child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
-        child->mapped_info[child->total_mapped_region].npages =
-          parent->mapped_info[i].npages;
+        child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
+        // sprint("fork时npages有:%d\n",parent->mapped_info[i].npages);
         child->mapped_info[child->total_mapped_region].seg_type = CODE_SEGMENT;
         child->total_mapped_region++;
         break;
       case DATA_SEGMENT:
-
+        // sprint("333");
         // sprint("父进程的data段信息:%llx %d",user_va_to_pa(parent->pagetable,(void*)parent->mapped_info[DATA_SEGMENT].va),parent->mapped_info[DATA_SEGMENT].npages);
         //初始内容父子进程相同，但是后续相互独立 采用深拷贝   逻辑地址相同
         for(int j=0;j<parent->mapped_info[DATA_SEGMENT].npages;j++)
@@ -285,17 +288,18 @@ int do_fork( process* parent)
         child->mapped_info[DATA_SEGMENT].va = parent->mapped_info[i].va;
         child->mapped_info[DATA_SEGMENT].npages = parent->mapped_info[i].npages;
         child->mapped_info[DATA_SEGMENT].seg_type = DATA_SEGMENT;
-        child->total_mapped_region++;
+        if(child->mapped_info[DATA_SEGMENT].npages!=0)child->total_mapped_region++;
         // sprint("当前mapped_region的数量:%d",child->total_mapped_region);
         break;
 
     }
   }
-
+  // sprint("444");
   child->status = READY;
   child->trapframe->regs.a0 = 0;
   child->parent = parent;
   insert_to_ready_queue( child );
+
 
   return child->pid;
 }

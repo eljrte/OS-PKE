@@ -29,11 +29,14 @@ int main(int argc, char *argv[]) {
       token = strtok(buf, delim);
       start = 1;
     }
-    else 
-      token = strtok(NULL, delim);
+    else token = strtok(NULL, delim);
+    printu("%s ",token);
     strcpy(command, token);
+    
     token = strtok(NULL, delim);
-    strcpy(para, token);
+    if(token == NULL) strcpy(para,"");
+    else strcpy(para,token);
+    printu("%s\n",para);
     if(strcmp(command, "END") == 0 && strcmp(para, "END") == 0)
       break;
     printu("Next command: %s %s\n\n", command, para);

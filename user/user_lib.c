@@ -181,3 +181,8 @@ int exec(const char *command, const char *para){
   do_user_call(SYS_user_exec,(uint64)command,(uint64)para, 0, 0, 0, 0, 0);
   return 0;
 }
+
+void printpa(int* va)
+{
+  do_user_call(SYS_user_printpa, (uint64)va, 0, 0, 0, 0, 0, 0);
+}

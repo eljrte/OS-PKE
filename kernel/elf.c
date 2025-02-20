@@ -89,23 +89,30 @@ elf_status elf_load(elf_ctx *ctx) {
 
     // record the vm region in proc->mapped_info. added @lab3_1
     int j;
+    int flag=0; // 检测是否增加total_mapped_region
     for( j=0; j<PGSIZE/sizeof(mapped_region); j++ ) //seek the last mapped region
       if( (process*)(((elf_info*)(ctx->info))->p)->mapped_info[j].va == 0x0 ) break;
 
-    ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].va = ph_addr.vaddr;
-    ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].npages = 1;
 
     // SEGMENT_READABLE, SEGMENT_EXECUTABLE, SEGMENT_WRITABLE are defined in kernel/elf.h
     if( ph_addr.flags == (SEGMENT_READABLE|SEGMENT_EXECUTABLE) ){
       ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].seg_type = CODE_SEGMENT;
+      if(((process*)(((elf_info*)(ctx->info))->p))->mapped_info[CODE_SEGMENT].npages==0) flag=1;
       sprint( "CODE_SEGMENT added at mapped info offset:%d\n", j );
     }else if ( ph_addr.flags == (SEGMENT_READABLE|SEGMENT_WRITABLE) ){
       ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].seg_type = DATA_SEGMENT;
+      if(((process*)(((elf_info*)(ctx->info))->p))->mapped_info[DATA_SEGMENT].npages==0) flag=1;
       sprint( "DATA_SEGMENT added at mapped info offset:%d\n", j );
     }else
       panic( "unknown program segment encountered, segment flag:%d.\n", ph_addr.flags );
 
-    ((process*)(((elf_info*)(ctx->info))->p))->total_mapped_region ++;
+    //这两行代码原来在上面 换个位置 用npages来判断
+    ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].va = ph_addr.vaddr;
+    ((process*)(((elf_info*)(ctx->info))->p))->mapped_info[j].npages = 1;
+    
+    //这个地方需要再斟酌一下 stack 
+    if(flag) ((process*)(((elf_info*)(ctx->info))->p))->total_mapped_region ++;
+    flag=0;
   }
 
   return EL_OK;
@@ -170,7 +177,7 @@ void exec_process_helper(process* p){
  
   //开始集成COW  Heap段集成完毕  后续集成data  开始集成data cow finish
  
-  //开始尝试能不能不清零pagetable 处理一下map_pages  试验成功 这里我们就不重置堆了 带着父进程的堆走下去
+  //开始尝试能不能不清零pagetable 处理一下map_pages  试验成功 这里我们就不重置堆了 带着父进程的堆走下去  那CODE_SEGMENT呢
 
   //pagetale清零 把fork时映射的东西去掉 现在主要是CODE_SEGMENT 不清除的话 不能二次映射了
   // memset((void *)p->pagetable, 0, PGSIZE);   
@@ -222,12 +229,14 @@ int do_exec(char* command, char* para, process* p){
   //我们先清空一下process
   //elf中会导入code_segment和data_segment 我们负责重新规划 user_stack user_kernel_stack trapframe trapsec_start
   //这里模仿allc_process
+  // sprint("没加载elf前进程有多少个segment:%d\n",p->total_mapped_region);
   exec_process_helper(p);
 
   // exec_helper(p);
 
   load_bincode_from_host_elf(p,command);
 
+  // sprint("现在新的进程有多少个segment:%d\n",p->total_mapped_region);
 
   //然后传入一下参数 我们只需要传入一个地址即可
   //该地址与我们的para关联即可

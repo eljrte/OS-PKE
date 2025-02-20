@@ -14,6 +14,7 @@ void naive_free(void* va);
 int fork();
 void yield();
 void wait(int pid);
+void printpa(int* va);
 
 // added @ lab4_1
 int open(const char *pathname, int flags);
