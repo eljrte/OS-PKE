@@ -75,6 +75,18 @@ USER_E_CPPS 		:= user/app_ls.c user/user_lib.c
 USER_E_OBJS  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_E_CPPS)))
 
 USER_E_TARGET 	:= $(HOSTFS_ROOT)/bin/app_ls
+
+USER_CPPS2 		:= user/app_exec2.c user/user_lib.c
+
+USER_OBJS2  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_CPPS2)))
+
+USER_TARGET2 	:= $(HOSTFS_ROOT)/bin/app_exec2
+
+USER_E_CPPS2 		:= user/app_read.c user/user_lib.c
+
+USER_E_OBJS2  		:= $(addprefix $(OBJ_DIR)/, $(patsubst %.c,%.o,$(USER_E_CPPS2)))
+
+USER_E_TARGET2 	:= $(HOSTFS_ROOT)/bin/app_read
 #------------------------targets------------------------
 $(OBJ_DIR):
 	@-mkdir -p $(OBJ_DIR)	
@@ -83,6 +95,8 @@ $(OBJ_DIR):
 	@-mkdir -p $(dir $(KERNEL_OBJS))
 	@-mkdir -p $(dir $(USER_OBJS))
 	@-mkdir -p $(dir $(USER_E_OBJS))
+	@-mkdir -p $(dir $(USER_OBJS2))
+	@-mkdir -p $(dir $(USER_E_OBJS2))
 
 $(OBJ_DIR)/%.o : %.c
 	@echo "compiling" $<
@@ -120,17 +134,30 @@ $(USER_E_TARGET): $(OBJ_DIR) $(UTIL_LIB) $(USER_E_OBJS)
 	@$(COMPILE) --entry=main $(USER_E_OBJS) $(UTIL_LIB) -o $@
 	@echo "User app has been built into" \"$@\"
 
+$(USER_TARGET2): $(OBJ_DIR) $(UTIL_LIB) $(USER_OBJS2)
+	@echo "linking" $@	...	
+	-@mkdir -p $(HOSTFS_ROOT)/bin
+	@$(COMPILE) --entry=main $(USER_OBJS2) $(UTIL_LIB) -o $@
+	@echo "User app has been built into" \"$@\"
+	@cp $@ $(OBJ_DIR)
+
+$(USER_E_TARGET2): $(OBJ_DIR) $(UTIL_LIB) $(USER_E_OBJS2)
+	@echo "linking" $@	...	
+	-@mkdir -p $(HOSTFS_ROOT)/bin
+	@$(COMPILE) --entry=main $(USER_E_OBJS2) $(UTIL_LIB) -o $@
+	@echo "User app has been built into" \"$@\"
+    
 -include $(wildcard $(OBJ_DIR)/*/*.d)
 -include $(wildcard $(OBJ_DIR)/*/*/*.d)
 
 .DEFAULT_GOAL := $(all)
 
-all: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET)
+all: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET) $(USER_TARGET2) $(USER_E_TARGET2)
 .PHONY:all
 
-run: $(KERNEL_TARGET) $(USER_TARGET) $(USER_E_TARGET)
+run: $(KERNEL_TARGET) $(USER_TARGET)
 	@echo "********************HUST PKE********************"
-	spike $(KERNEL_TARGET) /bin/app_exec
+	spike $(KERNEL_TARGET) $(USER_TARGET)
 
 # need openocd!
 gdb:$(KERNEL_TARGET) $(USER_TARGET)
