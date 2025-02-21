@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 
   read_u(fd, buf, MAXBUF);
   close(fd);
-  // asm volatile("csrw sscratch, 0");
+  asm volatile("csrw sscratch, 0");
   char *command = naive_malloc();
   char *para = naive_malloc();
   int start = 0;

@@ -121,15 +121,19 @@ void read_uint16(uint16 *out, char **off) {
 * and their code file name index of array "file"
 */
 void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
- process *p = ((elf_info *)ctx->info)->p;
+  //我怀疑是下面这里地址有问题 至于为什么有问题
+  process *p = ((elf_info *)ctx->info)->p;
   p->debugline = debug_line;
   // directory name char pointer array
   p->dir = (char **)((((uint64)debug_line + length + 7) >> 3) << 3); int dir_ind = 0, dir_base;
+  // memset(p->dir, 0, 64 * sizeof(char *));
   // file name char pointer array
   p->file = (code_file *)(p->dir + 64); int file_ind = 0, file_base;
+  // memset(p->file, 0, 64 * sizeof(code_file));
   // table array
   p->line = (addr_line *)(p->file + 64); p->line_ind = 0;
-  
+  // memset(p->line, 0, 64 * sizeof(addr_line));
+
   char *off = debug_line;
 
   while (off < debug_line + length) { // iterate each compilation unit(CU)
@@ -141,7 +145,7 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
           p->dir[dir_ind++] = off; while (*off != 0) off++; off++;
       }
       
-      sprint("%s\n",p->dir[dir_ind-1]);
+      // sprint("%s\n",p->dir[dir_ind-1]);
 
       off++;
       // get file name char pointer in this CU
@@ -216,8 +220,8 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
       }
 endop:;
   }
-  // for (int i = 0; i < p->line_ind; i++)
-  //     sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
+  for (int i = 0; i < p->line_ind; i++)
+      sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
 }
 //
 // load the elf segments to memory regions.
@@ -276,12 +280,11 @@ elf_status elf_load(elf_ctx *ctx) {
 }
 
 
-
+static char debug_line_content[100000];
 
 elf_status elf_load_debug_line_content(elf_ctx * ctx){
 
   elf_sect_header debug_line_sh;
-  char debug_line_content[16384];
 
     elf_sect_header shstsh;
 
@@ -293,6 +296,7 @@ elf_status elf_load_debug_line_content(elf_ctx * ctx){
 
     // for(int i=0;i<shstsh.size;i++)
     //   sprint("%c",shstsh_content[i]);
+
     //这个地方之前没问题
     elf_sect_header tmp;
     int i=0;
@@ -300,15 +304,17 @@ elf_status elf_load_debug_line_content(elf_ctx * ctx){
     {
         elf_fpread(ctx,(void*)&tmp,ctx->ehdr.shentsize,ctx->ehdr.shoff+i*ctx->ehdr.shentsize);
         char * section_name = &shstsh_content[tmp.name];
+        // sprint("%s ",section_name);
         if(strcmp(section_name,".debug_line") == 0)
         {
             debug_line_sh = tmp;
+            // sprint("第几个%d",i);
             break;
         }
     }
 
-    elf_fpread(ctx,(void*)&debug_line_content,debug_line_sh.size,debug_line_sh.offset);
-    make_addr_line(ctx,debug_line_content,debug_line_sh.size);
+    elf_fpread(ctx,(void*)debug_line_content,debug_line_sh.size,debug_line_sh.offset);
+    make_addr_line(ctx,(char*)debug_line_content,debug_line_sh.size);
     sprint("ok");
     return EL_OK;
 }
