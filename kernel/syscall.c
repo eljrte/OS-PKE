@@ -17,6 +17,9 @@
 #include "elf.h"
 #include "spike_interface/spike_utils.h"
 
+
+
+
 //
 // implement the SYS_user_print syscall
 //
@@ -250,15 +253,52 @@ ssize_t sys_user_semv(int sem_id)
 }
 
 
-
-
-
 ssize_t sys_user_printpa(uint64 va)
 {
   uint64 pa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void*)va);
   sprint("%lx\n", pa);
   return 0;
 }
+
+
+//返回0表示还没到头，返回1表示已经找到了main
+ssize_t find_func_name(uint64 ret_addr){
+
+  // sprint("222");
+  for(int i = 0;i < sym_count;i++){
+    // sprint("%lx %lx %d\n", ret_addr, symbols[i].st_value, symbols[i].st_size);
+    // sprint("i的值为:%d ",i);
+      if(ret_addr >= symbols[i].st_value && ret_addr < symbols[i].st_value + symbols[i].st_size){
+          sprint("%s\n",sym_names[i]);
+          if(strcmp(sym_names[i],"main") == 0) return 1;
+          else return 0;
+      }
+  }
+  return 0;
+}
+
+ssize_t sys_print_backtrace(uint64 n){
+  uint64 fp = current->trapframe->regs.sp;
+  // for(int i=0;i<64;i++)
+  //   sprint("%lx",current->trapframe->regs.sp[i]);
+  uint64 page_start = (uint64)user_va_to_pa(current->pagetable,(void*)fp);
+  // for(int i=0;i<64;i++)
+  //   sprint("%lx ",((uint64*)page_start)[i]);
+
+
+  // sprint("此时fp: va=%lx, pa=%lx\n",fp, (uint64)user_va_to_pa(current->pagetable,(void*)fp));
+  // sprint("print backtrace:user_s0=%lx,user_sp=%lx\n",current->trapframe->regs.s0,current->trapframe->regs.sp);
+  uint64 addr =page_start+24;
+  for(int i = 0;i < n;i++){
+      // sprint("111");
+      if(find_func_name(*(uint64*)addr)) return 0;
+      addr = addr + 16;
+  }
+  return 0;
+}
+
+
+
 //
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
 // returns the code of success, (e.g., 0 means success, fail for otherwise)
@@ -319,6 +359,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
       return sys_user_semp(a1);
     case SYS_user_semv:
       return sys_user_semv(a1);
+    case SYS_print_backtrace:
+      return sys_print_backtrace(a1);
     default:
       panic("Unknown syscall %ld \n", a0);
   }

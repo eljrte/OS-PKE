@@ -7,4 +7,5 @@
 /bin/app_ls /RAMDISK0
 /bin/app_cow END
 /bin/app_semaphore END
+/bin/app_print_backtrace END
 END END

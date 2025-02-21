@@ -15,6 +15,11 @@
 
 extern char trap_sec_start[];
 
+elf_symbol symbols[64];
+char sym_names[64][32];
+int sym_count;
+
+
 typedef struct elf_info_t {
   struct file *f;
   process *p;
@@ -46,7 +51,6 @@ static uint64 elf_fpread(elf_ctx *ctx, void *dest, uint64 nb, uint64 offset) {
   vfs_lseek(msg->f, offset, SEEK_SET);
   return vfs_read(msg->f, dest, nb);
 }
-
 //
 // init elf_ctx, a data structure that loads the elf.
 //
@@ -121,6 +125,7 @@ void read_uint16(uint16 *out, char **off) {
 * and their code file name index of array "file"
 */
 void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
+  sprint("111 长度%d",length);
   //我怀疑是下面这里地址有问题 至于为什么有问题
   process *p = ((elf_info *)ctx->info)->p;
   p->debugline = debug_line;
@@ -137,7 +142,8 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
   char *off = debug_line;
 
   while (off < debug_line + length) { // iterate each compilation unit(CU)
-      // sprint("yep");
+    
+      sprint("yep");
       debug_header *dh = (debug_header *)off; off += sizeof(debug_header);
       dir_base = dir_ind; file_base = file_ind;
       // get directory name char pointer in this CU
@@ -220,6 +226,7 @@ void make_addr_line(elf_ctx *ctx, char *debug_line, uint64 length) {
       }
 endop:;
   }
+  sprint("222");
   for (int i = 0; i < p->line_ind; i++)
       sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
 }
@@ -281,11 +288,9 @@ elf_status elf_load(elf_ctx *ctx) {
 
 
 static char debug_line_content[100000];
-
 elf_status elf_load_debug_line_content(elf_ctx * ctx){
 
-  elf_sect_header debug_line_sh;
-
+    ((elf_info *) ctx->info)->p->debugline = NULL;
     elf_sect_header shstsh;
 
     elf_fpread(ctx, (void*)&shstsh, sizeof(shstsh), ctx->ehdr.shoff+ctx->ehdr.shstrndx*ctx->ehdr.shentsize);
@@ -307,14 +312,15 @@ elf_status elf_load_debug_line_content(elf_ctx * ctx){
         // sprint("%s ",section_name);
         if(strcmp(section_name,".debug_line") == 0)
         {
-            debug_line_sh = tmp;
+            //到这也没毛病 加载的大小什么的都对的上
+            // sprint("%s %d\n",section_name,tmp.size);
+            if(elf_fpread(ctx,(void*)&debug_line_content,tmp.size,tmp.offset)!=tmp.size) return EL_EIO;
+            make_addr_line(ctx,(char*)debug_line_content,tmp.size);
             // sprint("第几个%d",i);
             break;
         }
     }
 
-    elf_fpread(ctx,(void*)debug_line_content,debug_line_sh.size,debug_line_sh.offset);
-    make_addr_line(ctx,(char*)debug_line_content,debug_line_sh.size);
     sprint("ok");
     return EL_OK;
 }
@@ -344,8 +350,11 @@ void load_bincode_from_host_elf(process *p, char *filename) {
   // load elf. elf_load() is defined above.
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
+
+  load_func_name(&elfloader);
    // 在这里加载debug_line的信息 以为elf_load只加载运行相关的section
-  if (elf_load_debug_line_content(&elfloader) != EL_OK) panic("Fail on loading elf_debug_line.\n");
+  // if (elf_load_debug_line_content(&elfloader) != EL_OK) panic("Fail on loading elf_debug_line.\n");
+  
   // entry (virtual, also physical in lab1_x) address
   //记录程序的entry points
   p->trapframe->epc = elfloader.ehdr.entry;
@@ -467,4 +476,50 @@ int do_exec(char* command, char* para, process* p){
   // sprint("传过去的va:%llx,对应的pa:%llx,para的实际地址:%llx",va,pa,para);
 
   return 0;
+}
+
+void load_func_name(elf_ctx* ctx){
+  memset(symbols,0,sizeof(symbols));
+  memset(sym_names,0,sizeof(sym_names));
+  sym_count = 0;
+
+  // 先找到这个section header 字符串表，并把其中所有section的名字读出来
+  elf_sect_header sh_str;
+  elf_fpread(ctx,(void*)&sh_str,sizeof(sh_str),ctx->ehdr.shoff + ctx->ehdr.shstrndx * sizeof(elf_sect_header));
+  char section_name[sh_str.size];
+  // sprint("%d\n",sh_str.sh_size);
+  elf_fpread(ctx,section_name,sh_str.size,sh_str.offset);
+//    for(int i = 0;i < sh_str.sh_size;i++)
+//        sprint("%c",section_name[i]);
+//    sprint("\n");
+
+  //找到.symtab和.strtab的header
+  elf_sect_header sh_symtab;
+  elf_sect_header sh_strtab;
+  for(uint16 i = 0;i < ctx->ehdr.shnum;i++){
+      uint64 shoff = ctx->ehdr.shoff + i * sizeof(elf_sect_header);
+      elf_sect_header sh_tmp;
+      elf_fpread(ctx,&sh_tmp,sizeof(sh_tmp),shoff);
+      if(strcmp(section_name + sh_tmp.name,".symtab") == 0){
+          sh_symtab = sh_tmp;
+      }else if(strcmp(section_name + sh_tmp.name,".strtab") == 0){
+          sh_strtab = sh_tmp;
+      }
+  }
+
+  //读出symtab中所有函数的symbol和name，并记录数量
+  uint64 symnum = sh_symtab.size / sizeof(elf_symbol);
+  int i;
+  int count = 0;
+  elf_symbol symbol_tmp;
+  for(i = 0;i < symnum;i++){
+      elf_fpread(ctx,&symbol_tmp,sizeof(symbol_tmp),sh_symtab.offset + i * sizeof(elf_symbol));
+      if(symbol_tmp.st_info == 18){
+          elf_fpread(ctx,sym_names[count],sizeof(sym_names[count]),sh_strtab.offset + symbol_tmp.st_name);
+          symbols[count] = symbol_tmp;
+           sprint("%s\n",sym_names[count]);
+          count++;
+      }
+  }
+  sym_count = count;
 }

@@ -45,5 +45,7 @@ void sem_V(int sem_id);
 //added @ lab3_C3
 void printpa(int* va);
 
+
+int print_backtrace(int num);
 #endif
 
