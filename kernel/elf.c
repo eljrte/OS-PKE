@@ -54,7 +54,7 @@ elf_status elf_init(elf_ctx *ctx, void *info) {
   ctx->info = info;
 
   // load the elf header
-  if (elf_fpread(ctx, &ctx->ehdr, sizeof(ctx->ehdr), 0) != sizeof(ctx->ehdr)) return EL_EIO;
+  if (elf_fpread_vfs(ctx, &ctx->ehdr, sizeof(ctx->ehdr), 0) != sizeof(ctx->ehdr)) return EL_EIO;
 
   // check the signature (magic value) of the elf
   if (ctx->ehdr.magic != ELF_MAGIC) return EL_NOTELF;
@@ -153,23 +153,24 @@ void load_bincode_from_host_elf(process *p) {
   // elf_info is defined above, used to tie the elf file and its corresponding process.
   elf_info info;
 
-  info.f = spike_file_open(arg_bug_msg.argv[0], O_RDONLY, 0);
+  info.file = vfs_open(arg_bug_msg.argv[0], O_RDONLY);
   info.p = p;
   // IS_ERR_VALUE is a macro defined in spike_interface/spike_htif.h
   if (IS_ERR_VALUE(info.f)) panic("Fail on openning the input application program.\n");
 
   // init elfloader context. elf_init() is defined above.
-  if (elf_init(&elfloader, &info) != EL_OK)
+  if (elf_init_vfs(&elfloader, &info) != EL_OK)
     panic("fail to init elfloader.\n");
 
   // load elf. elf_load() is defined above.
-  if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
+  if (elf_load_vfs(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
   // entry (virtual, also physical in lab1_x) address
   p->trapframe->epc = elfloader.ehdr.entry;
 
   // close the host spike file
-  spike_file_close( info.f );
+  // spike_file_close( info.f );
+  vfs_close(info.file);
 
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
 }

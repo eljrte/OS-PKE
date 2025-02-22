@@ -67,4 +67,8 @@ void load_bincode_from_host_elf(process *p);
 
 int do_exec(process* current,char* path);
 
+static uint64 elf_fpread_vfs(elf_ctx *ctx, void *dest, uint64 nb, uint64 offset);
+elf_status elf_init_vfs(elf_ctx *ctx,void *info);
+
+elf_status elf_load_vfs(elf_ctx* ctx);
 #endif
